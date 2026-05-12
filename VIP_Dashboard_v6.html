@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIP Member Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080c;--s1:#0d0f15;--s2:#13161f;--s3:#1a1e2a;
+  --border:#1e2333;--border2:#252c3d;
+  --gold:#f0b429;--gold2:#ffd166;--goldfaint:rgba(240,180,41,0.08);
+  --blue:#4f8ef7;--bluefaint:rgba(79,142,247,0.08);
+  --green:#3ecf8e;--greenfaint:rgba(62,207,142,0.08);
+  --red:#f05c5c;--redfaint:rgba(240,92,92,0.08);
+  --purple:#a78bfa;--purplefaint:rgba(167,139,250,0.08);
+  --text:#dde2f0;--muted:#5a6580;--muted2:#8a97b5;
+}
+html{font-size:13px}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* HEADER */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px;background:var(--s1);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:200;gap:12px;flex-wrap:wrap;
+}
+.logo{font-family:Syne,sans-serif;font-size:16px;font-weight:800;letter-spacing:-.5px}
+.logo em{color:var(--gold);font-style:normal}
+.logo span{font-weight:400;font-size:11px;color:var(--muted);margin-left:8px}
+.header-right{font-size:11px;color:var(--muted)}
+
+/* MONTH STRIP */
+.month-strip{
+  display:flex;align-items:center;gap:0;padding:0;
+  background:var(--s1);border-bottom:1px solid var(--border);
+  flex-direction:column;
+}
+.month-strip-row{
+  display:flex;align-items:center;gap:4px;padding:8px 24px;width:100%;
+  overflow-x:auto;
+}
+.month-strip-row+.month-strip-row{border-top:1px solid var(--border)}
+.month-strip-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-right:8px;white-space:nowrap;flex-shrink:0}
+.mtab{
+  padding:5px 13px;border-radius:20px;border:1px solid var(--border2);
+  background:transparent;color:var(--muted2);font-family:'DM Mono',monospace;
+  font-size:11px;cursor:pointer;white-space:nowrap;transition:all .15s;
+}
+.mtab:hover{border-color:var(--muted2);color:var(--text)}
+.mtab.on{background:var(--gold);border-color:var(--gold);color:#000;font-weight:500}
+.ytab{
+  padding:5px 14px;border-radius:20px;border:1px solid var(--border2);
+  background:transparent;color:var(--muted2);font-family:'DM Mono',monospace;
+  font-size:11px;cursor:pointer;white-space:nowrap;transition:all .15s;
+}
+.ytab:hover{border-color:var(--muted2);color:var(--text)}
+.ytab.on{background:var(--s3);border-color:var(--blue);color:var(--blue);font-weight:500}
+
+/* VIEW TABS */
+.view-tabs{
+  display:flex;gap:0;background:var(--s1);
+  border-bottom:1px solid var(--border);
+}
+.vtab{
+  padding:11px 22px;font-size:12px;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .15s;font-family:'DM Mono',monospace;
+  white-space:nowrap;
+}
+.vtab:hover{color:var(--text)}
+.vtab.on{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* KPI BAR */
+.kpi-bar{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  border-bottom:1px solid var(--border);
+}
+.kpi{
+  padding:16px 20px;border-right:1px solid var(--border);
+  background:var(--s1);
+}
+.kpi:last-child{border-right:none}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.kpi-val{font-family:Syne,sans-serif;font-size:21px;font-weight:700}
+.kpi-sub{font-size:10px;color:var(--muted2);margin-top:2px}
+.c-gold{color:var(--gold)}.c-blue{color:var(--blue)}.c-green{color:var(--green)}.c-red{color:var(--red)}.c-purple{color:var(--purple)}
+
+/* MAIN LAYOUT */
+.main{padding:20px 24px;display:grid;gap:16px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:1fr 1fr 1fr}
+.full{grid-column:1/-1}
+
+/* PANEL */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.ph{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+}
+.ph-title{font-family:Syne,sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px}
+.ph-icon{font-size:16px}
+.ph-sub{font-size:11px;color:var(--muted)}
+.ph-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.ph-badge-gold{background:var(--goldfaint);color:var(--gold);border:1px solid rgba(240,180,41,0.2)}
+.ph-badge-blue{background:var(--bluefaint);color:var(--blue);border:1px solid rgba(79,142,247,0.2)}
+.ph-badge-red{background:var(--redfaint);color:var(--red);border:1px solid rgba(240,92,92,0.2)}
+.ph-badge-green{background:var(--greenfaint);color:var(--green);border:1px solid rgba(62,207,142,0.2)}
+
+/* MEMBER ROW */
+.mrow{
+  display:flex;align-items:center;gap:10px;padding:9px 16px;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;
+}
+.mrow:last-child{border-bottom:none}
+.mrow:hover{background:var(--s2)}
+.mrow-rank{font-size:11px;color:var(--muted);width:16px;text-align:right;flex-shrink:0}
+.avatar{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;flex-shrink:0;font-family:Syne,sans-serif;
+}
+.av0{background:var(--goldfaint);color:var(--gold)}
+.av1{background:var(--bluefaint);color:var(--blue)}
+.av2{background:var(--greenfaint);color:var(--green)}
+.av3{background:var(--purplefaint);color:var(--purple)}
+.av4{background:var(--redfaint);color:var(--red)}
+.mrow-info{flex:1;min-width:0}
+.mrow-id{font-family:Syne,sans-serif;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow-name{font-size:11px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.mrow-right{text-align:right;flex-shrink:0}
+.mrow-amt{font-family:Syne,sans-serif;font-size:13px;font-weight:700}
+.mrow-meta{font-size:10px;color:var(--muted);margin-top:2px}
+.mrow-trend{font-size:10px;margin-top:2px}
+.up{color:var(--green)}.down{color:var(--red)}.flat{color:var(--muted)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.b-gold{background:var(--goldfaint);color:var(--gold);border:1px solid rgba(240,180,41,.2)}
+.b-green{background:var(--greenfaint);color:var(--green);border:1px solid rgba(62,207,142,.2)}
+.b-blue{background:var(--bluefaint);color:var(--blue);border:1px solid rgba(79,142,247,.2)}
+.b-red{background:var(--redfaint);color:var(--red);border:1px solid rgba(240,92,92,.2)}
+.b-purple{background:var(--purplefaint);color:var(--purple);border:1px solid rgba(167,139,250,.2)}
+
+/* BAR CHART */
+.bar-section{padding:12px 16px}
+.brow{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.brow:last-child{margin-bottom:0}
+.brow-label{font-size:11px;color:var(--muted2);width:100px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow-track{flex:1;height:20px;background:var(--s3);border-radius:3px;overflow:hidden;position:relative}
+.brow-fill{height:100%;border-radius:3px;min-width:3px;transition:width .4s ease}
+.brow-val{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:500;white-space:nowrap}
+
+/* PROGRESS BAR */
+.prog-row{padding:10px 16px;border-bottom:1px solid var(--border)}
+.prog-row:last-child{border-bottom:none}
+.prog-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.prog-id{font-family:Syne,sans-serif;font-size:13px;font-weight:700}
+.prog-pct{font-size:11px;color:var(--gold)}
+.prog-sub{font-size:10px;color:var(--muted);margin-bottom:5px}
+.prog-track{height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold));border-radius:3px;transition:width .5s ease}
+
+/* SPARKLINE (10-month mini chart in member detail) */
+.sparkline{display:flex;align-items:flex-end;gap:3px;height:32px;margin-top:3px}
+.spark-bar{border-radius:1px;min-width:4px;min-height:2px;flex:1}
+
+/* EMPTY */
+.empty{padding:24px 16px;text-align:center;font-size:12px;color:var(--muted)}
+
+/* MODAL */
+.overlay{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.8);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:20px;
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--s1);border:1px solid var(--border2);
+  border-radius:10px;width:680px;max-width:100%;max-height:88vh;
+  overflow-y:auto;
+}
+.modal-head{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  padding:20px 24px;border-bottom:1px solid var(--border);
+}
+.modal-id{font-family:Syne,sans-serif;font-size:22px;font-weight:800}
+.modal-name{font-size:12px;color:var(--muted2);margin-top:3px}
+.modal-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:4px;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:18px 24px;border-bottom:1px solid var(--border)}
+.modal-kpi{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
+.modal-kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.modal-kpi-val{font-family:Syne,sans-serif;font-size:17px;font-weight:700}
+.modal-chart{padding:18px 24px;border-bottom:1px solid var(--border)}
+.modal-chart-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+.month-bars{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;align-items:end}
+.mb-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+.mb-bar-wrap{width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:90px}
+.mb-bar{width:100%;border-radius:2px 2px 0 0;min-height:2px}
+.mb-label{font-size:9px;color:var(--muted);white-space:nowrap;transform:rotate(-40deg);margin-top:4px}
+.mb-val{font-size:9px;color:var(--muted2);text-align:center;min-height:13px}
+.modal-table{width:100%;border-collapse:collapse;margin:0 24px;width:calc(100% - 48px)}
+.modal-table th{padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);text-align:right;background:var(--s2)}
+.modal-table th:first-child{text-align:left}
+.modal-table td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-size:12px}
+.modal-table td:first-child{text-align:left;color:var(--muted2)}
+.modal-table tr:last-child td{border-bottom:none}
+.modal-table .row-active td{color:var(--text)}
+.modal-note{margin:18px 24px;padding:12px 14px;border-radius:6px;font-size:12px;line-height:1.6}
+.note-warn{background:var(--redfaint);border:1px solid rgba(240,92,92,.2);color:#ffaaaa}
+.note-good{background:var(--greenfaint);border:1px solid rgba(62,207,142,.2);color:#7effc4}
+.note-blue{background:var(--bluefaint);border:1px solid rgba(79,142,247,.2);color:#aac4ff}
+.note-gold{background:var(--goldfaint);border:1px solid rgba(240,180,41,.2);color:#ffe299}
+.note-neutral{background:var(--s2);border:1px solid var(--border2);color:var(--muted2)}
+
+@media(max-width:900px){
+  .kpi-bar{grid-template-columns:repeat(3,1fr)}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .kpi-bar{grid-template-columns:repeat(2,1fr)}
+  .header{padding:10px 14px}
+  .main{padding:12px 14px}
+}
+
+/* UPLOAD PANEL */
+.upload-bar{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  grid-template-rows:auto auto;
+  gap:8px 12px;
+  padding:10px 24px;
+  background:var(--s1);border-bottom:1px solid var(--border);
+  align-items:center;
+}
+.upload-label{
+  font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1px;white-space:nowrap;
+  grid-row:1;grid-column:1;
+}
+.upload-slots{
+  display:flex;gap:8px;flex-wrap:wrap;
+  grid-row:1;grid-column:2;
+}
+.upload-actions{
+  display:flex;align-items:center;gap:10px;
+  grid-row:2;grid-column:1/-1;
+  padding-top:2px;
+}
+.upload-slot{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border:1px dashed var(--border2);border-radius:6px;cursor:pointer;
+  background:var(--s2);transition:all .15s;
+  flex:1;min-width:120px;max-width:200px;
+}
+.upload-slot:hover{border-color:var(--gold);background:var(--goldfaint)}
+.upload-slot.ready{border-color:var(--green);border-style:solid;background:var(--greenfaint)}
+.upload-slot.ready .us-icon{color:var(--green)}
+.us-icon{font-size:16px;color:var(--muted)}
+.us-text{flex:1;min-width:0}
+.us-title{font-size:11px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.us-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.upload-slot input[type=file]{display:none}
+.upload-btn{
+  padding:6px 16px;background:var(--gold);color:#000;border:none;
+  border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;
+  font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s;
+}
+.upload-btn:hover{opacity:.85}
+.upload-btn:disabled{opacity:.4;cursor:not-allowed}
+.upload-status{font-size:10px;color:var(--muted2)}
+
+/* ── MEMBER CARD TABS ─────────────────────── */
+.mc-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 24px;gap:0;margin-top:4px}
+.mc-tab{padding:9px 18px;font-size:12px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.mc-tab:hover{color:var(--text)}
+.mc-tab.on{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ── LOG FEED ─────────────────────────────── */
+.log-feed{padding:16px 24px;display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto}
+.log-entry{display:flex;gap:10px;align-items:flex-start}
+.log-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.log-dot-contact{background:var(--blue)}
+.log-dot-gift{background:var(--gold)}
+.log-dot-remark{background:var(--purple)}
+.log-body{flex:1;min-width:0}
+.log-text{font-size:12px;color:var(--text);line-height:1.5}
+.log-meta{font-size:10px;color:var(--muted);margin-top:2px}
+.log-empty{font-size:12px;color:var(--muted);padding:20px 24px;text-align:center}
+
+/* ── ADD LOG FORM ─────────────────────────── */
+.log-form{padding:12px 24px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.log-form-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.log-select{
+  padding:6px 10px;background:var(--s2);border:1px solid var(--border2);
+  border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;
+  cursor:pointer;
+}
+.log-input{
+  flex:1;padding:6px 10px;background:var(--s2);border:1px solid var(--border2);
+  border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;
+  outline:none;min-width:0;
+}
+.log-input:focus{border-color:var(--gold)}
+.log-input::placeholder{color:var(--muted)}
+.log-submit{
+  padding:6px 14px;background:var(--gold);color:#000;border:none;
+  border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;
+  font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.log-submit:hover{opacity:.85}
+.log-submit:disabled{opacity:.4;cursor:not-allowed}
+.log-delete{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:13px;padding:0 4px;line-height:1;transition:color .15s;
+}
+.log-delete:hover{color:var(--red)}
+
+/* BRAND BADGES */
+.b-mgbmy{background:rgba(79,142,247,0.15);color:#4f8ef7;border:1px solid rgba(79,142,247,0.3)}
+.b-mgbsg{background:rgba(240,180,41,0.15);color:#f0b429;border:1px solid rgba(240,180,41,0.3)}
+.b-mbs{background:rgba(62,207,142,0.15);color:#3ecf8e;border:1px solid rgba(62,207,142,0.3)}
+.b-gfw{background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3)}
+.b-pgb{background:rgba(240,92,92,0.15);color:#f05c5c;border:1px solid rgba(240,92,92,0.3)}
+.b-b1{background:rgba(90,101,128,0.15);color:#8a97b5;border:1px solid rgba(90,101,128,0.3)}
+.brand-filter-bar{display:flex;gap:6px;padding:8px 24px;background:var(--s1);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.brand-filter-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-right:4px}
+.bftab{padding:4px 12px;border-radius:12px;font-size:11px;cursor:pointer;transition:all .15s;font-family:'DM Mono',monospace;border:1px solid var(--border2);background:transparent;color:var(--muted2)}
+.bftab:hover{color:var(--text)}
+.bftab.on{font-weight:600}
+.bftab-all.on{background:var(--s3);border-color:var(--muted2);color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo"><em>VIP</em> MEMBER REPORT<span>FTD & Monthly Deposit Dashboard</span></div>
+  <div class="header-right">Data: 2026-05-05 · Paste new Excel data to refresh</div>
+</div>
+
+
+<div class="upload-bar">
+  <div class="upload-label">Update Data</div>
+  <div class="upload-slots">
+    <label class="upload-slot" id="slotReport">
+      <input type="file" id="fileReport" accept=".xlsx,.xls" onchange="handleFile('report',this)">
+      <div class="us-icon" id="iconReport">📊</div>
+      <div class="us-text">
+        <div class="us-title" id="titleReport">BOT Player Report</div>
+        <div class="us-sub" id="subReport">All brand tabs</div>
+      </div>
+    </label>
+    <label class="upload-slot" id="slotJibetsReport">
+      <input type="file" id="fileJibetsReport" accept=".xlsx,.xls" onchange="handleFile('jibetsreport',this)">
+      <div class="us-icon" id="iconJibetsReport">📋</div>
+      <div class="us-text">
+        <div class="us-title" id="titleJibetsReport">JIBETS Player Report</div>
+        <div class="us-sub" id="subJibetsReport">All_Members .xlsx</div>
+      </div>
+    </label>
+    <label class="upload-slot" id="slotDeposit">
+      <input type="file" id="fileDeposit" accept=".xlsx,.xls" onchange="handleFile('deposit',this)">
+      <div class="us-icon" id="iconDeposit">💰</div>
+      <div class="us-text">
+        <div class="us-title" id="titleDeposit">JIBETS Deposit</div>
+        <div class="us-sub" id="subDeposit">Login ID format</div>
+      </div>
+    </label>
+    <label class="upload-slot" id="slotWithdrawal">
+      <input type="file" id="fileWithdrawal" accept=".xlsx,.xls" onchange="handleFile('withdrawal',this)">
+      <div class="us-icon" id="iconWithdrawal">🏧</div>
+      <div class="us-text">
+        <div class="us-title" id="titleWithdrawal">JIBETS Withdrawal</div>
+        <div class="us-sub" id="subWithdrawal">Login ID format</div>
+      </div>
+    </label>
+    <label class="upload-slot" id="slotDepositBot">
+      <input type="file" id="fileDepositBot" accept=".xlsx,.xls" onchange="handleFile('depositbot',this)">
+      <div class="us-icon" id="iconDepositBot">💰</div>
+      <div class="us-text">
+        <div class="us-title" id="titleDepositBot">BOT Deposit</div>
+        <div class="us-sub" id="subDepositBot">Member ID format</div>
+      </div>
+    </label>
+    <label class="upload-slot" id="slotWithdrawalBot">
+      <input type="file" id="fileWithdrawalBot" accept=".xlsx,.xls" onchange="handleFile('withdrawalbot',this)">
+      <div class="us-icon" id="iconWithdrawalBot">🏧</div>
+      <div class="us-text">
+        <div class="us-title" id="titleWithdrawalBot">BOT Withdrawal</div>
+        <div class="us-sub" id="subWithdrawalBot">Member ID format</div>
+      </div>
+    </label>
+  </div>
+  <div class="upload-actions">
+    <button class="upload-btn" id="uploadBtn" onclick="processFiles()">⚡ Refresh Dashboard</button>
+    <label style="display:inline-flex;align-items:center;gap:0">
+      <input type="file" id="fileVipList" accept=".xlsx,.xls,.csv" onchange="handleVipFile(this)" style="display:none">
+      <button class="upload-btn" id="vipSyncBtn" onclick="syncVipList()" style="background:var(--s3);color:var(--gold);border:1px solid var(--gold)">⟳ Sync VIP List</button>
+    </label>
+    <span class="upload-status" id="uploadStatus">Upload files then click Refresh. Use Sync VIP List to pull from Google Sheet.</span>
+  </div>
+</div>
+
+<div class="brand-filter-bar" id="brandFilterBar">
+  <span class="brand-filter-label">Brand</span>
+  <button class="bftab bftab-all on" onclick="setBrand('ALL',this)">All</button>
+  <button class="bftab" style="background:rgba(90,101,128,0.15);color:#8a97b5;border-color:rgba(90,101,128,0.3)" onclick="setBrand('JIBETS_MY',this)">JIBETS MY</button>
+  <button class="bftab" style="background:rgba(90,101,128,0.15);color:#a8b5cc;border-color:rgba(90,101,128,0.3)" onclick="setBrand('JIBETS_SG',this)">JIBETS SG</button>
+  <button class="bftab b-mgbmy" onclick="setBrand('MGBMY',this)">MGBMY</button>
+  <button class="bftab b-mgbsg" onclick="setBrand('MGBSG',this)">MGBSG</button>
+  <button class="bftab b-mbs" onclick="setBrand('MBS',this)">MBS</button>
+  <button class="bftab b-gfw" onclick="setBrand('GFW',this)">GFW</button>
+  <button class="bftab b-pgb" onclick="setBrand('PGB',this)">PGB</button>
+</div>
+<div class="month-strip">
+  <div class="month-strip-row">
+    <div class="month-strip-label">Year</div>
+    <div id="yearTabs"></div>
+  </div>
+  <div class="month-strip-row">
+    <div class="month-strip-label">Month</div>
+    <div id="monthTabs"></div>
+  </div>
+</div>
+
+<div class="view-tabs" id="viewTabs">
+  <div class="vtab on" onclick="setView('overview',this)">Overview</div>
+  <div class="vtab" onclick="setView('vip',this)">VIP Progress</div>
+  <div class="vtab" onclick="setView('potential',this)">Potential VIP</div>
+  <div class="vtab" onclick="setView('noftd',this)">No FTD</div>
+  <div class="vtab" onclick="setView('alldepositors',this)">All Depositors</div>
+  <div class="vtab" onclick="setView('lifetime',this)">Lifetime Summary</div>
+  <div class="vtab" onclick="setView('winloss',this)">Win / Loss</div>
+</div>
+
+<div class="kpi-bar" id="kpiBar"></div>
+<div class="main" id="mainGrid"></div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" onclick="maybeClose(event)">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+const MONTHS=['2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03','2026-04','2026-05'];
+const ML=["Aug '25","Sep '25","Oct '25","Nov '25","Dec '25","Jan '26","Feb '26","Mar '26","Apr '26","May '26"];
+const VIP=50000, POTENTIAL=8000;
+
+// ── DATA ──────────────────────────────────────────────────────
+const DATA=[
+  {brand:'JIBETS',id:'Alextan97',name:'Alex tan kok lin',reg:'2025-11-25',ftdM:'2025-11',ftdD:'2025-11-25',ftdA:5000,a:[0,0,0,31000,187300,74800,131700,209176,139875,36500],c:[0,0,0,12,75,31,42,76,69,20],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:810351},
+  {brand:'JIBETS',id:'Gunalan',name:'Gunalan',reg:'2025-09-27',ftdM:'2025-09',ftdD:'2025-09-27',ftdA:100,a:[0,100,34824,75405,69971,71935,12445,4000,3470,0],c:[0,1,59,77,67,39,7,5,4,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:272150},
+  {brand:'JIBETS',id:'Zainulldin',name:'Nicky Ooi Nam Tien',reg:'2025-12-15',ftdM:'2025-12',ftdD:'2025-12-15',ftdA:100,a:[0,0,0,0,4300,72330,104909,165709,143800,7500],c:[0,0,0,0,20,184,311,248,197,8],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:498548},
+  {brand:'JIBETS',id:'Lucas',name:'Darlene Thien May Ching',reg:'2025-12-07',ftdM:'2025-12',ftdD:'2025-12-07',ftdA:6300,a:[0,0,0,0,20200,89050,10400,18000,4400,2000],c:[0,0,0,0,20,50,7,9,3,1],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:144050},
+  {brand:'JIBETS',id:'My008976',name:'Wong Ka Heng',reg:'2026-02-25',ftdM:'2026-03',ftdD:'2026-03-16',ftdA:2000,a:[0,0,0,0,0,0,0,31200,130650,30500],c:[0,0,0,0,0,0,0,15,85,17],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:192350},
+  {brand:'JIBETS',id:'jieee6886',name:'Chieng Tiu Kiat',reg:'2026-01-13',ftdM:'2026-01',ftdD:'2026-01-19',ftdA:30,a:[0,0,0,0,0,4640,32275,25167,42928,228],c:[0,0,0,0,0,26,114,137,237,6],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:105239},
+  {brand:'JIBETS',id:'Lau25072003',name:'Lau Kah Wei',reg:'2026-02-12',ftdM:'2026-02',ftdD:'2026-02-22',ftdA:50,a:[0,0,0,0,0,0,998,9820,75680,130],c:[0,0,0,0,0,0,8,34,45,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:86628},
+  {brand:'JIBETS',id:'KenGor',name:'Tang Wai Heng',reg:'2025-12-09',ftdM:'2025-12',ftdD:'2025-12-09',ftdA:500,a:[0,0,0,0,2250,17599,11530,38480,1600,0],c:[0,0,0,0,8,34,26,48,2,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:71459},
+  {brand:'JIBETS',id:'yangxiaodi',name:'LEE CHEN YANG',reg:'2026-03-28',ftdM:'2026-03',ftdD:'2026-03-28',ftdA:650,a:[0,0,0,0,0,0,0,1050,64640,6500],c:[0,0,0,0,0,0,0,7,93,4],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:72190},
+  {brand:'JIBETS',id:'Junyu612',name:'HO JIA YU',reg:'2025-10-08',ftdM:'2025-10',ftdD:'2025-10-08',ftdA:60,a:[0,0,1490,12459,6477,16225,13726,15075,5481,660],c:[0,0,32,137,98,191,205,57,53,7],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:71595},
+  {brand:'JIBETS',id:'boy9377',name:'adwin chin wai hong',reg:'2026-02-20',ftdM:'2026-03',ftdD:'2026-03-26',ftdA:700,a:[0,0,0,0,0,0,0,2200,59940,600],c:[0,0,0,0,0,0,0,4,67,4],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:62740},
+  {brand:'JIBETS',id:'jacky94',name:'jackychumhoongyeap',reg:'2025-11-17',ftdM:'2025-11',ftdD:'2025-11-24',ftdA:100,a:[0,0,0,100,8780,8750,3530,14900,24300,190],c:[0,0,0,1,68,45,10,28,51,2],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:60550},
+  {brand:'JIBETS',id:'Wesly',name:'WeslyTingYikSung',reg:'2026-01-19',ftdM:'2026-01',ftdD:'2026-01-19',ftdA:100,a:[0,0,0,0,0,4250,30570,22442,2850,1350],c:[0,0,0,0,0,17,75,61,13,4],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:61462},
+  {brand:'JIBETS',id:'Chan8888',name:'Chan wei lun',reg:'2025-12-01',ftdM:'2025-12',ftdD:'2025-12-01',ftdA:180,a:[0,0,0,0,2410,5760,3240,28115,17450,900],c:[0,0,0,0,17,40,28,106,87,7],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:57875},
+  {brand:'JIBETS',id:'Limlim1987',name:'Ongwilli',reg:'2025-11-07',ftdM:'2025-11',ftdD:'2025-11-07',ftdA:900,a:[0,0,0,3890,2600,10150,13000,5100,18600,1000],c:[0,0,0,13,4,9,17,8,18,1],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:54340},
+  {brand:'JIBETS',id:'Calvin06',name:'MAH THENG SHIEN (Calvin)',reg:'2026-02-10',ftdM:'2026-02',ftdD:'2026-02-10',ftdA:1000,a:[0,0,0,0,0,0,41340,8200,2500,0],c:[0,0,0,0,0,0,29,13,2,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:52040},
+  {brand:'JIBETS',id:'Khonest',name:'K honest enterprise',reg:'2025-11-27',ftdM:'2025-11',ftdD:'2025-11-27',ftdA:70,a:[0,0,0,550,1750,10390,7625,33840,9340,142],c:[0,0,0,4,10,27,27,44,32,2],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:63637},
+  {brand:'JIBETS',id:'Jocellyn06',name:'TAN JIE QI',reg:'2026-03-24',ftdM:'2026-03',ftdD:'2026-03-24',ftdA:1000,a:[0,0,0,0,0,0,0,11500,35200,0],c:[0,0,0,0,0,0,0,8,20,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:46700},
+  {brand:'JIBETS',id:'braxter',name:'braxterchinjunyong',reg:'2025-12-24',ftdM:'2026-02',ftdD:'2026-02-07',ftdA:100,a:[0,0,0,0,0,0,150,29312,9897,4700],c:[0,0,0,0,0,0,2,90,40,8],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:44060},
+  {brand:'JIBETS',id:'alan9988',name:'leeshengjie',reg:'2026-01-28',ftdM:'2026-01',ftdD:'2026-01-29',ftdA:110,a:[0,0,0,0,0,210,540,1280,34576,2850],c:[0,0,0,0,0,4,8,16,141,19],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:39456},
+  {brand:'JIBETS',id:'Jeffhow2305',name:'JEFF',reg:'2025-10-02',ftdM:'2025-10',ftdD:'2025-10-02',ftdA:900,a:[0,0,6850,2820,5735,0,7300,800,7748,1300],c:[0,0,24,23,34,0,7,5,15,2],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:32553},
+  {brand:'JIBETS',id:'lcj0301',name:'LimChunJie',reg:'2025-12-22',ftdM:'2025-12',ftdD:'2025-12-30',ftdA:270,a:[0,0,0,0,745,6292,6639,15234,3420,676],c:[0,0,0,0,3,44,39,79,17,6],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:33006},
+  {brand:'JIBETS',id:'Shien06',name:'MAH THENG SHIEN',reg:'2026-04-08',ftdM:'2026-04',ftdD:'2026-04-10',ftdA:4000,a:[0,0,0,0,0,0,0,0,28000,0],c:[0,0,0,0,0,0,0,0,18,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:28000},
+  {brand:'JIBETS',id:'yeo0803',name:'Yeo Wei Yong',reg:'2025-11-30',ftdM:'2025-12',ftdD:'2025-12-06',ftdA:50,a:[0,0,0,0,2520,5830,6850,7175,3040,90],c:[0,0,0,0,14,37,77,47,30,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:25505},
+  {brand:'JIBETS',id:'cjy939',name:'CHEAH JUN YAN',reg:'2025-10-19',ftdM:'2025-10',ftdD:'2025-10-19',ftdA:30,a:[0,0,30,0,0,2474,2849,11644,6753,764],c:[0,0,1,0,0,26,37,63,54,6],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:24515},
+  {brand:'JIBETS',id:'Xiang9800',name:'LEO KAI XIANG',reg:'2026-04-21',ftdM:'2026-04',ftdD:'2026-04-21',ftdA:5000,a:[0,0,0,0,0,0,0,0,5000,17650],c:[0,0,0,0,0,0,0,0,1,8],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:22650},
+  {brand:'JIBETS',id:'leechoyhar',name:'leechoyhar',reg:'2025-10-14',ftdM:'2025-11',ftdD:'2025-11-08',ftdA:130,a:[0,0,0,130,1250,3750,2500,8800,6500,800],c:[0,0,0,3,20,27,15,26,21,5],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:23730},
+  {brand:'JIBETS',id:'Kaizhe070600',name:'Tee Kai Zhe',reg:'2026-04-25',ftdM:'2026-04',ftdD:'2026-04-25',ftdA:4650,a:[0,0,0,0,0,0,0,0,6650,14000],c:[0,0,0,0,0,0,0,0,6,4],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:20650},
+  {brand:'JIBETS',id:'jason0206',name:'Tan Jing Hong',reg:'2025-11-26',ftdM:'2026-02',ftdD:'2026-02-24',ftdA:1000,a:[0,0,0,0,0,0,2000,11266,5000,0],c:[0,0,0,0,0,0,2,11,4,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:18266},
+  {brand:'JIBETS',id:'ngeiko01',name:'NG EIKO',reg:'2026-01-28',ftdM:'2026-01',ftdD:'2026-01-29',ftdA:200,a:[0,0,0,0,0,290,5550,6985,3860,500],c:[0,0,0,0,0,3,28,45,39,5],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:17185},
+  {brand:'JIBETS',id:'jiahe1205',name:'christopher teo jia ho',reg:'2025-12-18',ftdM:'2025-12',ftdD:'2025-12-28',ftdA:100,a:[0,0,0,0,1240,1650,4900,7180,1230,835],c:[0,0,0,0,21,21,42,40,14,9],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:17035},
+  {brand:'JIBETS',id:'Junting',name:'YAP JUN TING',reg:'2025-11-18',ftdM:'2026-01',ftdD:'2026-01-06',ftdA:100,a:[0,0,0,0,0,370,6279,4400,3995,250],c:[0,0,0,0,0,8,61,61,51,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:15294},
+  {brand:'JIBETS',id:'akid',name:'Ngcheahhwee',reg:'2025-11-02',ftdM:'2026-01',ftdD:'2026-01-23',ftdA:100,a:[0,0,0,0,0,1530,3010,6853,3970,530],c:[0,0,0,0,0,16,65,81,52,6],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:15893},
+  {brand:'JIBETS',id:'Kaizhe070600',name:'Tee Kai Zhe',reg:'2026-04-25',ftdM:'2026-04',ftdD:'2026-04-25',ftdA:4650,a:[0,0,0,0,0,0,0,0,6650,14000],c:[0,0,0,0,0,0,0,0,6,4],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:20650},
+  {brand:'JIBETS',id:'Siang',name:'Heng Mok Siang',reg:'2025-10-08',ftdM:'2025-10',ftdD:'2025-10-08',ftdA:700,a:[0,0,1700,100,0,5410,750,1780,8710,400],c:[0,0,11,1,0,45,11,17,90,2],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:18850},
+  {brand:'JIBETS',id:'marvin24',name:'Ng wei chuan',reg:'2025-12-15',ftdM:'2025-12',ftdD:'2025-12-25',ftdA:1000,a:[0,0,0,0,1000,4300,2200,1750,3600,0],c:[0,0,0,0,5,23,9,13,15,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:12850},
+  {brand:'JIBETS',id:'Utry321',name:'CHU XIANG WEN',reg:'2026-02-05',ftdM:'2026-02',ftdD:'2026-02-05',ftdA:60,a:[0,0,0,0,0,0,1320,10728,1158,0],c:[0,0,0,0,0,0,24,70,13,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:13206},
+  {brand:'JIBETS',id:'Cratsdox77',name:'Raymond Wong',reg:'2025-12-16',ftdM:'2025-12',ftdD:'2025-12-17',ftdA:68,a:[0,0,0,0,3557,1490,1976,3702,2161,222],c:[0,0,0,0,26,10,19,31,19,2],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:13110},
+  {brand:'JIBETS',id:'Brian',name:'Brian Ting Yik Kon',reg:'2026-03-10',ftdM:'2026-03',ftdD:'2026-03-10',ftdA:800,a:[0,0,0,0,0,0,0,8400,3400,0],c:[0,0,0,0,0,0,0,37,6,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:11800},
+  {brand:'JIBETS',id:'Ganck',name:'Gan Ching Keat',reg:'2025-12-22',ftdM:'2026-01',ftdD:'2026-01-03',ftdA:1000,a:[0,0,0,0,0,7000,0,1000,3000,0],c:[0,0,0,0,0,7,0,1,3,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:11000},
+  {brand:'JIBETS',id:'hon3415',name:'tanweihong',reg:'2026-03-19',ftdM:'2026-03',ftdD:'2026-03-19',ftdA:4000,a:[0,0,0,0,0,0,0,9330,2680,0],c:[0,0,0,0,0,0,0,29,15,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:12010},
+  {brand:'JIBETS',id:'Jason0922',name:'Ong Chin Yee',reg:'2026-03-08',ftdM:'2026-03',ftdD:'2026-03-08',ftdA:200,a:[0,0,0,0,0,0,0,6771,3550,0],c:[0,0,0,0,0,0,0,26,24,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:10321},
+  {brand:'JIBETS',id:'Chuah',name:'CHUAH QING SIEN',reg:'2025-11-29',ftdM:'2026-02',ftdD:'2026-02-15',ftdA:1501,a:[0,0,0,0,0,0,12007,7170,1981,90],c:[0,0,0,0,0,0,43,37,18,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:21249},
+  {brand:'JIBETS',id:'tirazai',name:'LIM CHIN HOCK',reg:'2026-02-22',ftdM:'2026-02',ftdD:'2026-02-22',ftdA:203,a:[0,0,0,0,0,0,748,590,7475,2000],c:[0,0,0,0,0,0,7,6,25,9],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:10813},
+  {brand:'JIBETS',id:'yuyu052198',name:'CHU SHI YU',reg:'2026-02-10',ftdM:'2026-02',ftdD:'2026-02-10',ftdA:3000,a:[0,0,0,0,0,0,4500,5900,5000,1000],c:[0,0,0,0,0,0,7,13,8,1],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:16400},
+  {brand:'JIBETS',id:'william3333',name:'tang wai leong',reg:'2025-12-24',ftdM:'2025-12',ftdD:'2025-12-24',ftdA:250,a:[0,0,0,0,400,1050,1350,1750,4410,900],c:[0,0,0,0,8,21,27,29,87,18],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:9860},
+  {brand:'JIBETS',id:'dannyooi1988',name:'Ooi Teik Ping',reg:'2026-02-05',ftdM:'2026-02',ftdD:'2026-02-16',ftdA:315,a:[0,0,0,0,0,0,3649,1508,1250,0],c:[0,0,0,0,0,0,19,12,5,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:6407},
+  {brand:'JIBETS',id:'sureheng',name:'Kong Kah Chun',reg:'2026-02-01',ftdM:'2026-02',ftdD:'2026-02-01',ftdA:50,a:[0,0,0,0,0,0,3780,1000,2376,300],c:[0,0,0,0,0,0,47,19,32,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:7456},
+  {brand:'JIBETS',id:'skylok99',name:'tam ka lok',reg:'2026-01-19',ftdM:'2026-01',ftdD:'2026-01-23',ftdA:200,a:[0,0,0,0,0,250,2360,1100,1850,0],c:[0,0,0,0,0,3,25,9,11,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:5560},
+  {brand:'JIBETS',id:'alexchiah7702',name:'CHIAH WAY HENG',reg:'2025-11-02',ftdM:'2025-11',ftdD:'2025-11-05',ftdA:50,a:[0,0,0,265,100,594,429,830,1910,893],c:[0,0,0,6,2,11,7,11,24,10],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:5021},
+  {brand:'JIBETS',id:'joker0106',name:'beckham chua wan ling',reg:'2025-11-23',ftdM:'2025-11',ftdD:'2025-11-29',ftdA:200,a:[0,0,0,200,1600,230,350,300,2190,530],c:[0,0,0,1,5,4,3,4,9,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:5400},
+  {brand:'JIBETS',id:'Han49',name:'Han Sheng Kong',reg:'2025-09-08',ftdM:'2025-09',ftdD:'2025-09-09',ftdA:190,a:[0,820,830,820,0,0,1350,645,2885,340],c:[0,19,23,16,0,0,11,9,39,5],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:7690},
+  {brand:'JIBETS',id:'yuan0311',name:'Soh sei guan',reg:'2025-10-09',ftdM:'2025-10',ftdD:'2025-10-09',ftdA:90,a:[0,0,390,960,0,0,0,430,5720,1008],c:[0,0,8,10,0,0,0,5,29,6],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:8508},
+  {brand:'JIBETS',id:'aabbccd',name:'Tee Guang Hong',reg:'2025-10-24',ftdM:'2025-10',ftdD:'2025-10-24',ftdA:200,a:[0,0,200,1610,100,95,230,0,1520,700],c:[0,0,1,13,1,2,4,0,12,5],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:4455},
+  {brand:'JIBETS',id:'Lenny1998',name:'Chong Sui San',reg:'2026-02-20',ftdM:'2026-03',ftdD:'2026-03-06',ftdA:100,a:[0,0,0,0,0,0,0,1261,1288,201],c:[0,0,0,0,0,0,0,18,21,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:2750},
+  {brand:'JIBETS',id:'Cheehow888',name:'Yong Chee how',reg:'2026-03-28',ftdM:'2026-03',ftdD:'2026-03-28',ftdA:1000,a:[0,0,0,0,0,0,0,1200,1190,1450],c:[0,0,0,0,0,0,0,4,6,5],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:3840},
+  {brand:'JIBETS',id:'man8888',name:'mandel chua chun wee',reg:'2026-03-18',ftdM:'2026-04',ftdD:'2026-04-15',ftdA:500,a:[0,0,0,0,0,0,0,0,1500,850],c:[0,0,0,0,0,0,0,0,3,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:2350},
+  {brand:'JIBETS',id:'Wenxing97',name:'Khor Boon Heng',reg:'2026-02-05',ftdM:'2026-04',ftdD:'2026-04-19',ftdA:1150,a:[0,0,0,0,0,0,0,0,1350,1100],c:[0,0,0,0,0,0,0,0,8,4],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:2450},
+  {brand:'JIBETS',id:'christyfpy',name:'foo phoi yee',reg:'2026-04-06',ftdM:'2026-04',ftdD:'2026-04-06',ftdA:300,a:[0,0,0,0,0,0,0,0,2450,300],c:[0,0,0,0,0,0,0,0,12,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:2750},
+  {brand:'JIBETS',id:'Sam8092',name:'Choong waih seim',reg:'2026-04-05',ftdM:'2026-04',ftdD:'2026-04-07',ftdA:30,a:[0,0,0,0,0,0,0,0,1921,303],c:[0,0,0,0,0,0,0,0,24,6],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:2224},
+  {brand:'JIBETS',id:'IvanTan',name:'IvanTanYuShen',reg:'2026-01-17',ftdM:'2026-01',ftdD:'2026-01-17',ftdA:100,a:[0,0,0,0,0,400,0,0,1400,300],c:[0,0,0,0,0,4,0,0,14,3],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:2100},
+  // No FTD members
+  {brand:'JIBETS',id:'Ninja123',name:'HENG JIE RAN',reg:'2026-05-05',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+  {brand:'JIBETS',id:'wayne825',name:'POR LOON WEI',reg:'2026-05-05',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+  {brand:'JIBETS',id:'Alpha29',name:'Ruven kesavan',reg:'2026-05-04',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+  {brand:'JIBETS',id:'boybarman',name:'muhammad daniel haikal',reg:'2026-04-30',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+  {brand:'JIBETS',id:'terry0404',name:'Terry Ang Yuan Ting',reg:'2026-05-02',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+  {brand:'JIBETS',id:'jay6969',name:'TONG JUN RONG',reg:'2026-05-03',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+  {brand:'JIBETS',id:'ccaabb111',name:'BOON SZE QIAN',reg:'2026-05-05',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[0,0,0,0,0,0,0,0,0,0],c:[0,0,0,0,0,0,0,0,0,0],w:[0,0,0,0,0,0,0,0,0,0],wl:[0,0,0,0,0,0,0,0,0,0],totW:0,tot:0},
+];
+
+// deduplicate
+const seen=new Set();
+const MEMBERS=DATA.filter(m=>{if(seen.has(m.id))return false;seen.add(m.id);return true;});
+
+// Keep a permanent snapshot of Brand 1 hardcoded members — never overwritten
+const JIBETS_BASE = MEMBERS.map(m=>Object.assign({},m,{a:[...m.a],c:[...m.c],w:[...m.w],wl:[...m.wl]}));
+
+// ── HELPERS ──────────────────────────────────────────────────
+// Brand badge helper
+function brandBadge(brand) {
+  const map = {
+    'MGBMY': ['b-mgbmy','MGBMY'],
+    'MGBSG': ['b-mgbsg','MGBSG'],
+    'MBS':   ['b-mbs',  'MBS'],
+    'GFW':   ['b-gfw',  'GFW'],
+    'PGB':   ['b-pgb',  'PGB'],
+    'B1':    ['b-b1',   'JIBETS'],
+  };
+  const [cls, label] = map[brand] || ['b-b1','—'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+const myr=v=>{
+  if(!v||v===0)return'—';
+  if(v>=1000000)return'MYR '+(v/1000000).toFixed(2)+'M';
+  if(v>=100000)return'MYR '+(v/1000).toFixed(0)+'K';
+  if(v>=1000)return'MYR '+(v/1000).toFixed(1)+'K';
+  return'MYR '+Math.round(v).toLocaleString();
+};
+const avCls=id=>['av0','av1','av2','av3','av4'][id.charCodeAt(0)%5];
+const initials=id=>id.substring(0,2).toUpperCase();
+const pct=(a,b)=>b>0?Math.round(((a-b)/b)*100):null;
+
+function trendHTML(cur,prv){
+  if(prv<=0&&cur>0)return`<span class="badge b-blue" style="margin-top:2px">New</span>`;
+  if(cur<=0&&prv>0)return`<span class="badge b-red" style="margin-top:2px">Gone quiet</span>`;
+  const p=pct(cur,prv);
+  if(p===null||cur===0)return'';
+  if(p>=50)return`<div class="mrow-trend up">↑ ${p}% vs prev month</div>`;
+  if(p>0)return`<div class="mrow-trend up">↑ ${p}% vs prev</div>`;
+  if(p<0)return`<div class="mrow-trend down">↓ ${Math.abs(p)}% vs prev</div>`;
+  return`<div class="mrow-trend flat">Same as prev month</div>`;
+}
+
+function sparkHTML(m){
+  const max=Math.max(...m.a,1);
+  return m.a.map((v,i)=>{
+    const h=Math.max(2,Math.round((v/max)*32));
+    const bg=i===9?'var(--gold)':i===8?'var(--blue)':'var(--border2)';
+    return`<div class="spark-bar" style="height:${h}px;background:${bg}"></div>`;
+  }).join('');
+}
+
+function mrowHTML(m,mi,rank,showTot=false){
+  const cur=m.a[mi], prv=mi>0?m.a[mi-1]:0;
+  const val=showTot?m.tot:cur;
+  const isVIP=m.tot>=VIP;
+  return`<div class="mrow" onclick="openModal('${m.id}')">
+    <div class="mrow-rank">${rank||''}</div>
+    <div class="avatar ${avCls(m.id)}">${initials(m.id)}</div>
+    <div class="mrow-info">
+      <div class="mrow-id">${m.id} ${isVIP?'<span class="badge b-gold">VIP</span>':''}</div>
+      <div class="mrow-name">${m.name}</div>
+      <div class="sparkline">${sparkHTML(m)}</div>
+    </div>
+    <div class="mrow-right">
+      <div class="mrow-amt ${isVIP?'c-gold':''}">${myr(val)}</div>
+      <div class="mrow-meta">${trendHTML(cur,prv)}</div>
+    </div>
+  </div>`;
+}
+
+function barHTML(m,mi,maxVal,showTot=false){
+  const val=showTot?m.tot:m.a[mi];
+  const isVIP=m.tot>=VIP;
+  const fillPct=maxVal>0?Math.max(2,Math.round((val/maxVal)*100)):2;
+  const bg=isVIP?'rgba(240,180,41,0.25)':'rgba(79,142,247,0.2)';
+  const textCol=isVIP?'var(--gold)':'var(--blue)';
+  return`<div class="brow">
+    <div class="brow-label" title="${m.id}">${m.id}</div>
+    <div class="brow-track">
+      <div class="brow-fill" style="width:${fillPct}%;background:${bg}"></div>
+      <div class="brow-val" style="color:${textCol}">${myr(val)}</div>
+    </div>
+  </div>`;
+}
+
+// ── STATE ──────────────────────────────────────────────────────
+let selMi=8, selView='overview', selBrand='ALL';
+
+function setBrand(brand, el) {
+  selBrand = brand;
+  document.querySelectorAll('.bftab').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+function filteredMembers() {
+  if (selBrand === 'ALL') return MEMBERS;
+  // JIBETS_MY filter also catches old hardcoded 'JIBETS' brand members
+  if (selBrand === 'JIBETS_MY') return MEMBERS.filter(m => m.brand==='JIBETS_MY' || m.brand==='JIBETS');
+  return MEMBERS.filter(m => m.brand === selBrand);
+}
+
+// ── YEAR / MONTH PICKER ───────────────────────────────────────
+const ALL_YEARS=[2025,2026,2027,2028,2029,2030];
+const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let selYear=null; // null = auto (year of selMi)
+
+function getSelYear(){
+  if(selYear!==null)return selYear;
+  const ym=MONTHS[selMi]||MONTHS[MONTHS.length-1]||'2026-01';
+  return parseInt(ym.slice(0,4));
+}
+
+function buildYearTabs(){
+  const yr=getSelYear();
+  document.getElementById('yearTabs').innerHTML=
+    ALL_YEARS.map(y=>`<button class="ytab${y===yr?' on':''}" onclick="pickYear(${y})">${y}</button>`).join('');
+}
+
+function buildMonthTabs(){
+  const yr=getSelYear();
+  // Show all 12 months for selected year; highlight if exists in data
+  const tabsHtml = MONTH_NAMES.map((mName,i)=>{
+    const key=yr+'-'+('0'+(i+1)).slice(-2);
+    const idx=MONTHS.indexOf(key);
+    const exists=idx>=0;
+    const isOn=idx===selMi;
+    const style=!exists?'opacity:.3;cursor:not-allowed':'';
+    return`<button class="mtab${isOn?' on':''}" style="${style}"
+      onclick="${exists?`selYear=null;selMi=${idx};render()`:''}"
+      ${!exists?'disabled':''}>${mName}</button>`;
+  }).join('');
+  document.getElementById('monthTabs').innerHTML=tabsHtml;
+}
+
+function pickYear(y){
+  selYear=y;
+  // Try to keep same month number, else pick first available month in that year
+  const curMonth=MONTHS[selMi]?MONTHS[selMi].slice(5,7):'01';
+  const preferred=y+'-'+curMonth;
+  const prefIdx=MONTHS.indexOf(preferred);
+  if(prefIdx>=0){ selMi=prefIdx; selYear=null; }
+  // else just re-render with year selected — month buttons update, no selMi change
+  render();
+}
+
+function buildTabs(){
+  buildYearTabs();
+  buildMonthTabs();
+}
+
+function setView(v,el){
+  selView=v;
+  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+// ── KPI ──────────────────────────────────────────────────────
+function renderKPI(){
+  const mi=selMi;
+  const active=MEMBERS.filter(m=>m.a[mi]>0);
+  const total=active.reduce((s,m)=>s+m.a[mi],0);
+  const vips=MEMBERS.filter(m=>m.tot>=VIP);
+  const vipActive=vips.filter(m=>m.a[mi]>0);
+  const noFtd=MEMBERS.filter(m=>m.ftdM==='No Deposit');
+  const prev=mi>0?MEMBERS.filter(m=>m.a[mi-1]>0):[];
+  const goneQuiet=mi>0?MEMBERS.filter(m=>m.a[mi-1]>0&&m.a[mi]===0):[];
+
+  document.getElementById('kpiBar').innerHTML=`
+    <div class="kpi">
+      <div class="kpi-label">Deposits ${ML[mi]}</div>
+      <div class="kpi-val c-gold">${myr(total)}</div>
+      <div class="kpi-sub">${active.length} active members</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">VIP Members</div>
+      <div class="kpi-val c-gold">${vips.length} total</div>
+      <div class="kpi-sub">${vipActive.length} active this month</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Active this month</div>
+      <div class="kpi-val c-blue">${active.length}</div>
+      <div class="kpi-sub">${mi>0?prev.length+' active last month':'—'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Gone quiet</div>
+      <div class="kpi-val c-red">${goneQuiet.length}</div>
+      <div class="kpi-sub">active last month, silent now</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">No FTD yet</div>
+      <div class="kpi-val c-red">${noFtd.length}</div>
+      <div class="kpi-sub">need conversion</div>
+    </div>
+  `;
+}
+
+// ── VIEWS ──────────────────────────────────────────────────────
+function viewOverview(mi){
+  // Per-brand breakdown
+  const BRANDS = [
+    {key:'JIBETS_MY', label:'JIBETS MY', cls:'b-b1'},
+    {key:'JIBETS_SG', label:'JIBETS SG', cls:'b-b1'},
+    {key:'MGBMY',     label:'MGBMY',     cls:'b-mgbmy'},
+    {key:'MGBSG',     label:'MGBSG',     cls:'b-mgbsg'},
+    {key:'MBS',       label:'MBS',       cls:'b-mbs'},
+    {key:'GFW',       label:'GFW',       cls:'b-gfw'},
+    {key:'PGB',       label:'PGB',       cls:'b-pgb'},
+  ];
+
+  function brandMembers(key) {
+    if (key==='JIBETS_MY') return MEMBERS.filter(m=>m.brand==='JIBETS_MY'||m.brand==='JIBETS');
+    return MEMBERS.filter(m=>m.brand===key);
+  }
+
+  const brandRows = BRANDS.map(function(b) {
+    const bm       = brandMembers(b.key);
+    const dep      = bm.reduce((s,m)=>s+(m.a[mi]||0),0);
+    const wd       = bm.reduce((s,m)=>s+(m.w[mi]||0),0);
+    const net      = dep - wd;
+    const active   = bm.filter(m=>m.a[mi]>0).length;
+    const total    = bm.length;
+    const prevDep  = mi>0 ? bm.reduce((s,m)=>s+(m.a[mi-1]||0),0) : 0;
+    const chg      = prevDep>0 ? Math.round(((dep-prevDep)/prevDep)*100) : null;
+    const chgHtml  = chg===null ? '<span style="color:var(--muted)">—</span>'
+                   : chg>=0 ? '<span style="color:var(--green)">↑'+chg+'%</span>'
+                   : '<span style="color:var(--red)">↓'+Math.abs(chg)+'%</span>';
+    const netCol   = net>=0?'var(--red)':'var(--green)';
+    return '<tr onclick="setBrandAndRender(\"'+b.key+'\")" style="cursor:pointer">'
+      +'<td><span class="badge '+b.cls+'">'+b.label+'</span></td>'
+      +'<td style="text-align:right;font-family:Syne,sans-serif;font-weight:700;color:var(--blue)">'+myr(dep)+'</td>'
+      +'<td style="text-align:right;color:var(--purple)">'+myr(wd)+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:'+netCol+'">'+( net>=0?'+':'' )+myr(net)+'</td>'
+      +'<td style="text-align:center">'+chgHtml+'</td>'
+      +'<td style="text-align:center;color:var(--muted2)">'+active+' / '+total+'</td>'
+      +'</tr>';
+  }).join('');
+
+  // Grand totals row
+  const allDep  = filteredMembers().reduce((s,m)=>s+(m.a[mi]||0),0);
+  const allWd   = filteredMembers().reduce((s,m)=>s+(m.w[mi]||0),0);
+  const allNet  = allDep - allWd;
+  const allAct  = filteredMembers().filter(m=>m.a[mi]>0).length;
+
+  const topDep     = filteredMembers().filter(m=>m.a[mi]>0).sort((a,b)=>b.a[mi]-a.a[mi]).slice(0,10);
+  const maxAmt     = topDep[0]?topDep[0].a[mi]:1;
+  const goneQuiet  = mi>0?filteredMembers().filter(m=>m.a[mi-1]>0&&m.a[mi]===0).sort((a,b)=>b.a[mi-1]-a.a[mi-1]).slice(0,6):[];
+  const rising     = mi>0?filteredMembers().filter(m=>m.a[mi]>0&&m.a[mi-1]>0&&m.a[mi]>=m.a[mi-1]*1.3).sort((a,b)=>b.a[mi]-a.a[mi]).slice(0,6):[];
+
+  return`
+  <div class="full">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">📊 Brand Summary — ${ML[mi]}</div>
+        <div class="ph-sub">Click any brand row to drill in</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--s2)">
+              <th style="padding:9px 16px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:left">Brand</th>
+              <th style="padding:9px 16px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Deposit</th>
+              <th style="padding:9px 16px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Withdrawal</th>
+              <th style="padding:9px 16px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Net (Dep−Wd)</th>
+              <th style="padding:9px 16px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">vs Prev Month</th>
+              <th style="padding:9px 16px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">Active / Total</th>
+            </tr>
+          </thead>
+          <tbody>${brandRows}</tbody>
+          <tfoot>
+            <tr style="background:var(--s2);font-weight:700;border-top:2px solid var(--border2)">
+              <td style="padding:10px 16px;font-family:Syne,sans-serif">TOTAL</td>
+              <td style="padding:10px 16px;text-align:right;color:var(--blue);font-family:Syne,sans-serif">${myr(allDep)}</td>
+              <td style="padding:10px 16px;text-align:right;color:var(--purple)">${myr(allWd)}</td>
+              <td style="padding:10px 16px;text-align:right;font-weight:700;color:${allNet>=0?'var(--red)':'var(--green)'}">${allNet>=0?'+':''}${myr(allNet)}</td>
+              <td></td>
+              <td style="padding:10px 16px;text-align:center;color:var(--muted2)">${allAct} / ${filteredMembers().length}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">📊 Top depositors — ${ML[mi]}</div>
+      <div class="ph-sub">sorted by this month</div>
+    </div>
+    <div class="bar-section">
+      ${topDep.length?topDep.map(m=>barHTML(m,mi,maxAmt)).join(''):'<div class="empty">No deposits this month</div>'}
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">✅ Active members</div>
+      <span class="ph-badge ph-badge-blue">${allAct}</span>
+    </div>
+    ${topDep.slice(0,8).map((m,i)=>mrowHTML(m,mi,i+1)).join('')}
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">🔴 Gone quiet</div>
+      <span class="ph-badge ph-badge-red">${goneQuiet.length}</span>
+    </div>
+    ${goneQuiet.length?goneQuiet.map(m=>mrowHTML(m,mi,null)).join(''):'<div class="empty">No drop-offs this month 🎉</div>'}
+  </div>
+  <div class="panel" style="grid-column:1/-1">
+    <div class="ph">
+      <div class="ph-title">📈 Rising fast this month</div>
+      <div class="ph-sub">30%+ more than ${mi>0?ML[mi-1]:'prev month'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      ${rising.length?rising.map(m=>mrowHTML(m,mi,null)).join(''):'<div class="empty">No strong risers this month</div>'}
+    </div>
+  </div>`;
+}
+
+// Click brand row in overview to filter to that brand
+function setBrandAndRender(brand) {
+  selBrand = brand;
+  document.querySelectorAll('.bftab').forEach(b=>b.classList.remove('on'));
+  // Try to highlight matching button
+  document.querySelectorAll('.bftab').forEach(function(b){
+    if(b.textContent.trim().replace(' ','_')===brand||b.getAttribute('onclick')&&b.getAttribute('onclick').includes("'"+brand+"'"))
+      b.classList.add('on');
+  });
+  selView='overview';
+  document.querySelectorAll('.vtab').forEach(v=>v.classList.remove('on'));
+  document.querySelectorAll('.vtab')[0].classList.add('on');
+  render();
+}
+
+function viewVIP(mi){
+  const vips=filteredMembers().filter(m=>m.tot>=VIP).sort((a,b)=>b.tot-a.tot);
+  const maxTot=vips[0]?vips[0].tot:1;
+  const activeVips=vips.filter(m=>m.a[mi]>0);
+  const quietVips=vips.filter(m=>m.a[mi]===0);
+
+  return`
+  <div class="full">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">⭐ VIP Leaderboard — lifetime total</div>
+        <div class="ph-sub">All members ≥ MYR 50K · gold = VIP active · grey = quiet this month</div>
+      </div>
+      <div class="bar-section">
+        ${vips.map(m=>{
+          const isActive=m.a[mi]>0;
+          const fillPct=Math.max(2,Math.round((m.tot/maxTot)*100));
+          const bg=isActive?'rgba(240,180,41,0.25)':'rgba(90,101,128,0.15)';
+          const textCol=isActive?'var(--gold)':'var(--muted2)';
+          const thisMonth=m.a[mi]>0?` · ${ML[mi]}: ${myr(m.a[mi])}`:'· quiet this month';
+          return`<div class="brow">
+            <div class="brow-label" title="${m.id}">${m.id}</div>
+            <div class="brow-track">
+              <div class="brow-fill" style="width:${fillPct}%;background:${bg}"></div>
+              <div class="brow-val" style="color:${textCol}">${myr(m.tot)}${thisMonth}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">✅ VIPs active ${ML[mi]}</div>
+      <span class="ph-badge ph-badge-gold">${activeVips.length} of ${vips.length}</span>
+    </div>
+    ${activeVips.length?activeVips.map(m=>mrowHTML(m,mi,null)).join(''):'<div class="empty">No VIPs active this month</div>'}
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">🔴 VIPs gone quiet</div>
+      <span class="ph-badge ph-badge-red">${quietVips.length} need re-engagement</span>
+    </div>
+    ${quietVips.length?quietVips.map(m=>mrowHTML(m,mi,null,true)).join(''):'<div class="empty">All VIPs active 🎉</div>'}
+  </div>`;
+}
+
+function viewPotential(mi){
+  const nonVip=filteredMembers().filter(m=>m.tot<VIP&&m.ftdM!=='No Deposit');
+  const highSpend=nonVip.filter(m=>m.a[mi]>=POTENTIAL).sort((a,b)=>b.a[mi]-a.a[mi]);
+  const maxHS=highSpend[0]?highSpend[0].a[mi]:1;
+
+  const closeToVip=nonVip.filter(m=>m.tot>=VIP*0.4).sort((a,b)=>b.tot-a.tot).slice(0,8);
+  const rising=mi>0?nonVip.filter(m=>m.a[mi]>0&&m.a[mi-1]>0&&m.a[mi]>=m.a[mi-1]*1.5).sort((a,b)=>b.a[mi]-a.a[mi]).slice(0,8):[];
+
+  return`
+  <div class="full">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">💎 High-spend non-VIPs — ${ML[mi]}</div>
+        <div class="ph-sub">deposited ≥ MYR 8K this month, lifetime total still under MYR 50K</div>
+      </div>
+      <div class="bar-section">
+        ${highSpend.length?highSpend.map(m=>barHTML(m,mi,maxHS)).join(''):'<div class="empty">No high-spend non-VIPs this month</div>'}
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">🏆 Closest to VIP status</div>
+      <div class="ph-sub">progress to MYR 50K lifetime</div>
+    </div>
+    ${closeToVip.map(m=>{
+      const p=Math.min(100,Math.round((m.tot/VIP)*100));
+      const needed=VIP-m.tot;
+      return`<div class="prog-row">
+        <div class="prog-head">
+          <div class="prog-id">${m.id}</div>
+          <div class="prog-pct">${p}% · needs ${myr(needed)}</div>
+        </div>
+        <div class="prog-sub">${m.name} · lifetime: ${myr(m.tot)}</div>
+        <div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">📈 Rising fastest</div>
+      <div class="ph-sub">50%+ more than ${mi>0?ML[mi-1]:'prev month'}</div>
+    </div>
+    ${rising.length?rising.map(m=>mrowHTML(m,mi,null)).join(''):'<div class="empty">No strong risers this month</div>'}
+  </div>`;
+}
+
+function viewNoFTD(mi){
+  const noFtd=filteredMembers().filter(m=>m.ftdM==='No Deposit');
+  const isNew=m=>new Date(m.reg)>=new Date(MONTHS[mi]+'-01');
+  const newMembers=noFtd.filter(m=>isNew(m));
+  const older=noFtd.filter(m=>!isNew(m));
+
+  return`
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">🆕 New — no deposit yet</div>
+      <span class="ph-badge ph-badge-blue">${newMembers.length}</span>
+    </div>
+    ${newMembers.length?newMembers.map(m=>`
+      <div class="mrow" onclick="openModal('${m.id}')">
+        <div class="avatar ${avCls(m.id)}">${initials(m.id)}</div>
+        <div class="mrow-info">
+          <div class="mrow-id">${m.id}</div>
+          <div class="mrow-name">${m.name}</div>
+          <div class="mrow-name" style="margin-top:2px">Registered ${m.reg}</div>
+        </div>
+        <div class="mrow-right"><span class="badge b-blue">New</span></div>
+      </div>`).join(''):'<div class="empty">No new members without FTD</div>'}
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-title">⚠️ Long-registered — still no FTD</div>
+      <span class="ph-badge ph-badge-red">${older.length} need attention</span>
+    </div>
+    ${older.length?older.map(m=>`
+      <div class="mrow" onclick="openModal('${m.id}')">
+        <div class="avatar ${avCls(m.id)}">${initials(m.id)}</div>
+        <div class="mrow-info">
+          <div class="mrow-id">${m.id}</div>
+          <div class="mrow-name">${m.name}</div>
+          <div class="mrow-name" style="margin-top:2px">Registered ${m.reg}</div>
+        </div>
+        <div class="mrow-right"><span class="badge b-red">Re-engage</span></div>
+      </div>`).join(''):'<div class="empty">All older members have deposited</div>'}
+  </div>`;
+}
+
+
+// ── VIEW: ALL DEPOSITORS ─────────────────────────────────────
+function viewAllDepositors(mi){
+  const deposited = filteredMembers().filter(m=>m.a[mi]>0).sort((a,b)=>b.a[mi]-a.a[mi]);
+  const totalAmt  = deposited.reduce((s,m)=>s+m.a[mi],0);
+  const totalCnt  = deposited.reduce((s,m)=>s+m.c[mi],0);
+
+  const rows = deposited.map((m,i)=>{
+    const isVIP = m.tot>=VIP;
+    const avg   = m.c[mi]>0?(m.a[mi]/m.c[mi]):0;
+    const prv   = mi>0?m.a[mi-1]:0;
+    const diff  = prv>0?Math.round(((m.a[mi]-prv)/prv)*100):null;
+    const diffHtml = diff===null?'—':diff>0?`<span style="color:var(--green)">↑${diff}%</span>`
+                    :diff<0?`<span style="color:var(--red)">↓${Math.abs(diff)}%</span>`
+                    :`<span style="color:var(--muted)">—</span>`;
+    return`<tr onclick="openModal('${m.id}')" style="cursor:pointer">
+      <td style="color:var(--muted);text-align:center">${i+1}</td>
+      <td>
+        <div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px">${m.id}${isVIP?' <span class="badge b-gold">VIP</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted2)">${m.name}</div>
+      </td>
+      <td style="text-align:right;font-family:Syne,sans-serif;font-weight:700;color:${isVIP?'var(--gold)':'var(--blue)'}">MYR ${m.a[mi].toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:center;color:var(--muted2)">${m.c[mi]}</td>
+      <td style="text-align:right;color:var(--muted2)">MYR ${avg.toFixed(2)}</td>
+      <td style="text-align:center">${diffHtml}</td>
+      <td style="text-align:right;color:var(--muted);font-size:11px">${myr(m.tot)}</td>
+    </tr>`;
+  }).join('');
+
+  return`<div class="full">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">📋 All Depositors — ${ML[mi]}</div>
+        <div style="display:flex;gap:16px;align-items:center">
+          <span style="font-size:11px;color:var(--muted2)">${deposited.length} members</span>
+          <span class="ph-badge ph-badge-gold">MYR ${totalAmt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})} total</span>
+          <span class="ph-badge ph-badge-blue">${totalCnt} transactions</span>
+        </div>
+      </div>
+      ${deposited.length===0?'<div class="empty">No deposits this month</div>':`
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--s2)">
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;width:36px;text-align:center">#</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:left">Member</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Deposit Amt</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">Tx Count</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Avg / Tx</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">vs Prev Month</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Lifetime</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="background:var(--s2);font-weight:700;border-top:2px solid var(--border2)">
+              <td colspan="2" style="padding:10px 12px;font-family:Syne,sans-serif;font-size:12px">TOTAL</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--gold);font-family:Syne,sans-serif">MYR ${totalAmt.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td style="padding:10px 12px;text-align:center;color:var(--blue)">${totalCnt}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--muted2)">MYR ${totalCnt>0?(totalAmt/totalCnt).toFixed(2):'0.00'}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+  </div>`;
+}
+
+// ── VIEW: LIFETIME SUMMARY ────────────────────────────────────
+function viewLifetime(){
+  const withDep = filteredMembers().filter(m=>m.tot>0).sort((a,b)=>b.tot-a.tot);
+  const grandTotal   = withDep.reduce((s,m)=>s+m.tot,0);
+  const grandTxCount = withDep.reduce((s,m)=>s+m.c.reduce((x,y)=>x+y,0),0);
+  const vipCount     = withDep.filter(m=>m.tot>=VIP).length;
+
+  const rows = withDep.map((m,i)=>{
+    const isVIP = m.tot>=VIP;
+    const txTotal = m.c.reduce((s,v)=>s+v,0);
+    const avg     = txTotal>0?(m.tot/txTotal):0;
+    const activeMonths = m.a.filter(v=>v>0).length;
+    const pctToVIP = Math.min(100,Math.round((m.tot/VIP)*100));
+    const barW = Math.max(2, Math.round((m.tot / (withDep[0]?withDep[0].tot:1)) * 100));
+    const barColor = isVIP ? 'rgba(240,180,41,0.35)' : 'rgba(79,142,247,0.2)';
+    const textColor = isVIP ? 'var(--gold)' : 'var(--blue)';
+    return`<tr onclick="openModal('${m.id}')" style="cursor:pointer">
+      <td style="color:var(--muted);text-align:center;font-size:11px">${i+1}</td>
+      <td>
+        <div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px">${m.id}${isVIP?' <span class="badge b-gold">VIP</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted2)">${m.name}</div>
+      </td>
+      <td style="padding:10px 12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:16px;background:var(--s3);border-radius:2px;overflow:hidden;min-width:80px">
+            <div style="width:${barW}%;height:100%;background:${barColor};border-radius:2px"></div>
+          </div>
+          <span style="font-family:Syne,sans-serif;font-weight:700;color:${textColor};white-space:nowrap">MYR ${m.tot.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+        </div>
+        ${!isVIP?`<div style="margin-top:3px;font-size:10px;color:var(--muted)">${pctToVIP}% to VIP · needs ${myr(VIP-m.tot)}</div>`:''}
+      </td>
+      <td style="text-align:center;color:var(--muted2)">${txTotal.toLocaleString()}</td>
+      <td style="text-align:right;color:var(--muted2)">MYR ${avg.toFixed(2)}</td>
+      <td style="text-align:center;color:var(--muted2)">${activeMonths} / ${MONTHS.length}</td>
+      <td style="text-align:left;font-size:11px;color:var(--muted2)">${m.ftdD||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  return`<div class="full">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">🏆 Lifetime Summary — All Time</div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <span class="ph-badge ph-badge-gold">MYR ${grandTotal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})} total</span>
+          <span class="ph-badge ph-badge-blue">${grandTxCount.toLocaleString()} transactions</span>
+          <span class="ph-badge ph-badge-green">${vipCount} VIPs</span>
+          <span style="font-size:11px;color:var(--muted2)">${withDep.length} depositing members</span>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--s2)">
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;width:36px;text-align:center">#</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:left">Member</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:left">Lifetime Total</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">Total Tx</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Avg / Tx</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">Active Months</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:left">FTD Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="background:var(--s2);font-weight:700;border-top:2px solid var(--border2)">
+              <td colspan="2" style="padding:10px 12px;font-family:Syne,sans-serif;font-size:12px">GRAND TOTAL</td>
+              <td style="padding:10px 12px;color:var(--gold);font-family:Syne,sans-serif;font-weight:700">MYR ${grandTotal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td style="padding:10px 12px;text-align:center;color:var(--blue)">${grandTxCount.toLocaleString()}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--muted2)">MYR ${grandTxCount>0?(grandTotal/grandTxCount).toFixed(2):'0.00'}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+
+// ── VIEW: WIN / LOSS ─────────────────────────────────────────
+function viewWinLoss(mi){
+  // Gather all members who had any activity (dep or wd) this month
+  const active = filteredMembers().filter(m=>(m.a[mi]>0)||(m.w&&m.w[mi]>0))
+    .sort((a,b)=>{
+      // Sort by W/L: biggest losers (member lost most) first
+      const wlA = a.wl?a.wl[mi]:a.a[mi];
+      const wlB = b.wl?b.wl[mi]:b.a[mi];
+      return wlB - wlA;
+    });
+
+  const totalDep = active.reduce((s,m)=>s+m.a[mi],0);
+  const totalWd  = active.reduce((s,m)=>s+(m.w?m.w[mi]:0),0);
+  const totalWL  = totalDep - totalWd; // positive = house won overall
+
+  // Lifetime W/L
+  const lifetimeDep = filteredMembers().reduce((s,m)=>s+m.tot,0);
+  const lifetimeWd  = filteredMembers().reduce((s,m)=>s+(m.totW||0),0);
+  const lifetimeWL  = lifetimeDep - lifetimeWd;
+
+  const wlColor = v => v > 0 ? 'var(--red)' : v < 0 ? 'var(--green)' : 'var(--muted)';
+  const wlLabel = v => v > 0 ? '📉 Lost' : v < 0 ? '🏆 Won' : '—';
+  const fmtAmt  = v => 'MYR ' + Math.abs(v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const rows = active.map((m,i)=>{
+    const dep = m.a[mi];
+    const wd  = m.w ? m.w[mi] : 0;
+    const wl  = m.wl ? m.wl[mi] : dep;
+    const isVIP = m.tot >= VIP;
+    // Bar: width relative to biggest absolute wl
+    return `<tr onclick="openModal('${m.id}')" style="cursor:pointer">
+      <td style="color:var(--muted);text-align:center;font-size:11px">${i+1}</td>
+      <td>
+        <div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px">${m.id}${isVIP?' <span class="badge b-gold">VIP</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted2)">${m.name}</div>
+      </td>
+      <td style="text-align:right;color:var(--blue)">MYR ${dep.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;color:var(--purple)">MYR ${wd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-family:Syne,sans-serif;font-weight:700;color:${wlColor(wl)}">
+        ${wl===0?'—':(wl>0?'+':'-')+fmtAmt(wl)}
+      </td>
+      <td style="text-align:center;font-size:11px;color:${wlColor(wl)}">${wlLabel(wl)}</td>
+      <td style="text-align:right;color:var(--muted);font-size:11px">${fmtAmt(m.tot-( m.totW||0))} ${(m.tot-(m.totW||0))>=0?'<span style="color:var(--red)">▼</span>':'<span style="color:var(--green)">▲</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  return`<div class="full">
+
+    <!-- Summary KPI row -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px">
+      <div class="panel">
+        <div style="padding:16px 20px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${ML[mi]} — Total Deposit</div>
+          <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:700;color:var(--blue)">MYR ${totalDep.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div style="padding:16px 20px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${ML[mi]} — Total Withdrawal</div>
+          <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:700;color:var(--purple)">MYR ${totalWd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div style="padding:16px 20px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${ML[mi]} — Net (Dep − Wd)</div>
+          <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:700;color:${wlColor(totalWL)}">
+            ${totalWL===0?'MYR 0.00':(totalWL>0?'+':'')}MYR ${Math.abs(totalWL).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}
+          </div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:4px">${totalWL>0?'Members net lost':'Members net won'} this month</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lifetime summary bar -->
+    <div class="panel" style="margin-bottom:4px">
+      <div class="ph">
+        <div class="ph-title">📊 Lifetime Net (All Time)</div>
+        <div style="display:flex;gap:16px;font-size:12px">
+          <span>Dep: <span style="color:var(--blue)">MYR ${lifetimeDep.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>
+          <span>Wd: <span style="color:var(--purple)">MYR ${lifetimeWd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>
+          <span>Net: <span style="color:${wlColor(lifetimeWL)};font-weight:700">${lifetimeWL>=0?'+':''}MYR ${Math.abs(lifetimeWL).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-member table -->
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">👤 Member Win / Loss — ${ML[mi]}</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="font-size:11px;color:var(--red)">📉 Red = member lost</span>
+          <span style="font-size:11px;color:var(--green)">🏆 Green = member won</span>
+        </div>
+      </div>
+      ${active.length===0?'<div class="empty">No activity this month</div>':`
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--s2)">
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;width:36px;text-align:center">#</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:left">Member</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Deposit</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Withdrawal</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Net (Dep−Wd)</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:center">Result</th>
+              <th style="padding:9px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.8px;text-align:right">Lifetime Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="background:var(--s2);font-weight:700;border-top:2px solid var(--border2)">
+              <td colspan="2" style="padding:10px 12px;font-family:Syne,sans-serif">TOTAL</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--blue)">MYR ${totalDep.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--purple)">MYR ${totalWd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td style="padding:10px 12px;text-align:right;color:${wlColor(totalWL)};font-family:Syne,sans-serif">
+                ${totalWL>=0?'+':''}MYR ${Math.abs(totalWL).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}
+              </td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+  </div>`;
+}
+
+
+// ── FIREBASE ──────────────────────────────────────────────────
+const FB_CONFIG = {
+  apiKey:            "AIzaSyBdNJLLsD4D2QpgNkpkxmzgllFPharYaFs",
+  authDomain:        "vipfeedback-c3307.firebaseapp.com",
+  projectId:         "vipfeedback-c3307",
+  storageBucket:     "vipfeedback-c3307.firebasestorage.app",
+  messagingSenderId: "1032687738657",
+  appId:             "1:1032687738657:web:ea74aec373d1190eabe860"
+};
+let _db = null;
+function getDB() {
+  if (_db) return _db;
+  try {
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CONFIG);
+    _db = firebase.firestore(app);
+  } catch(e) { console.warn('Firebase init failed:', e); }
+  return _db;
+}
+
+// Tab switcher
+function mcTab(el, sectionId) {
+  document.querySelectorAll('.mc-tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.mc-section').forEach(s => s.style.display = 'none');
+  el.classList.add('on');
+  document.getElementById(sectionId).style.display = '';
+}
+
+// Load all logs for a member
+// ── LOGS — reads from feedback/{memberId}.entries (same as old app) ──────
+async function loadLogs(memberId) {
+  const db = getDB();
+  if (!db) {
+    ['remarks','contacts','gifts'].forEach(type => {
+      const el = document.getElementById('feed-' + type + '-' + memberId);
+      if (el) el.innerHTML = '<div class="log-empty">Firebase not connected</div>';
+    });
+    return;
+  }
+  try {
+    // Try original case first, then uppercase, then lowercase
+    // Old app may store as BOTKK133, botkk133, or mixed
+    let doc = await db.collection('feedback').doc(memberId).get();
+    if (!doc.exists) doc = await db.collection('feedback').doc(memberId.toUpperCase()).get();
+    if (!doc.exists) doc = await db.collection('feedback').doc(memberId.toLowerCase()).get();
+
+    const entries = (doc.exists && doc.data().entries) ? doc.data().entries : [];
+
+    // Also load notes (old app stores as .notes string)
+    const notes = (doc.exists && doc.data().notes) ? doc.data().notes : '';
+
+    // Separate entries by type
+    const byType = { remark: [], contact: [], gift: [] };
+    entries.forEach(function(e, idx) {
+      const t = e.type || 'remark';
+      if (byType[t]) byType[t].push({...e, _idx: idx});
+    });
+    // Also push old notes as a remark if present
+    if (notes) byType.remark.unshift({text: notes, ts: null, by: '', _idx: -1, _isNote: true});
+
+    ['remark','contact','gift'].forEach(function(type) {
+      const feedEl = document.getElementById('feed-' + type + 's-' + memberId);
+      if (!feedEl) return;
+      const list = byType[type].slice().reverse(); // newest first
+      if (!list.length) {
+        feedEl.innerHTML = '<div class="log-empty">No ' + type + 's yet</div>';
+        return;
+      }
+      feedEl.innerHTML = list.map(function(e) {
+        const dotCls = 'log-dot-' + type;
+        const tsStr = e.ts
+          ? (e.ts.seconds
+              ? new Date(e.ts.seconds*1000).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+              : new Date(e.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}))
+          : '—';
+        let label = '';
+        if (type === 'contact') label = '<span style="color:var(--blue);margin-right:6px">' + (e.method||'') + '</span>';
+        if (type === 'gift')    label = '<span style="color:var(--gold);margin-right:6px">' + (e.giftType||'') + (e.value?' · '+e.value:'') + '</span>';
+        const delBtn = e._isNote ? '' : '<button class="log-delete" title="Delete" onclick="deleteLog(\''+memberId+'\','+e._idx+')">✕</button>';
+        return '<div class="log-entry">'
+          + '<div class="log-dot '+dotCls+'"></div>'
+          + '<div class="log-body">'
+          + '<div class="log-text">'+label+(e.text||'')+'</div>'
+          + '<div class="log-meta">'+tsStr+(e.by?' · '+e.by:'')+'</div>'
+          + '</div>'
+          + delBtn
+          + '</div>';
+      }).join('');
+    });
+  } catch(e) {
+    console.error('loadLogs error:', e);
+    ['remarks','contacts','gifts'].forEach(function(type) {
+      const el = document.getElementById('feed-' + type + '-' + memberId);
+      if (el) el.innerHTML = '<div class="log-empty">Error: ' + e.message + '</div>';
+    });
+  }
+}
+
+// Add a log entry — saves into feedback/{memberId}.entries array
+async function addLog(type, memberId) {
+  const db = getDB();
+  if (!db) { alert('Firebase not connected'); return; }
+
+  const textEl = document.getElementById('inp-' + type + '-' + memberId);
+  const text   = textEl ? textEl.value.trim() : '';
+  if (!text) { if (textEl) textEl.focus(); return; }
+
+  const btn = document.querySelector('button[onclick="addLog(\''+type+'\',\''+memberId+'\')"]');
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+  const entry = {
+    type, text,
+    ts: new Date().toISOString(),
+    by: 'Staff'
+  };
+  if (type === 'contact') {
+    const sel = document.getElementById('sel-contact-' + memberId);
+    entry.method = sel ? sel.value : 'Call';
+  }
+  if (type === 'gift') {
+    const selType = document.getElementById('sel-gift-type-' + memberId);
+    const valEl   = document.getElementById('inp-gift-val-' + memberId);
+    entry.giftType = selType ? selType.value : 'Other';
+    entry.value    = valEl ? valEl.value.trim() : '';
+  }
+
+  try {
+    // Find the correct doc ID (check which case exists)
+    let docId = memberId;
+    let snap  = await db.collection('feedback').doc(memberId).get();
+    if (!snap.exists) {
+      const upper = await db.collection('feedback').doc(memberId.toUpperCase()).get();
+      if (upper.exists) { docId = memberId.toUpperCase(); snap = upper; }
+      else {
+        const lower = await db.collection('feedback').doc(memberId.toLowerCase()).get();
+        if (lower.exists) { docId = memberId.toLowerCase(); snap = lower; }
+      }
+    }
+    const ref = db.collection('feedback').doc(docId);
+    const existing = snap.exists ? (snap.data().entries || []) : [];
+    existing.push(entry);
+    await ref.set({ entries: existing }, { merge: true });
+
+    if (textEl) textEl.value = '';
+    if (type === 'gift') {
+      const valEl = document.getElementById('inp-gift-val-' + memberId);
+      if (valEl) valEl.value = '';
+    }
+    await loadLogs(memberId);
+  } catch(e) {
+    alert('Error saving: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = type==='remark'?'Save':type==='contact'?'Log':'Add'; }
+  }
+}
+
+// Delete a log entry by index
+async function deleteLog(memberId, idx) {
+  if (!confirm('Delete this entry?')) return;
+  const db = getDB();
+  if (!db) return;
+  try {
+    let docId2 = memberId;
+    let snapD  = await db.collection('feedback').doc(memberId).get();
+    if (!snapD.exists) {
+      const upper = await db.collection('feedback').doc(memberId.toUpperCase()).get();
+      if (upper.exists) docId2 = memberId.toUpperCase();
+      else {
+        const lower = await db.collection('feedback').doc(memberId.toLowerCase()).get();
+        if (lower.exists) docId2 = memberId.toLowerCase();
+      }
+    }
+    const ref  = db.collection('feedback').doc(docId2);
+    const snapFinal = await ref.get();
+    const entries = snapFinal.exists ? (snapFinal.data().entries || []) : [];
+    entries.splice(idx, 1);
+    await ref.set({ entries }, { merge: true });
+    await loadLogs(memberId);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+
+// ── VIP LIST SYNC ────────────────────────────────────────────
+// Upload the VIP List exported as Excel/CSV from Google Sheets
+let _vipWB = null;
+
+function handleVipFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    _vipWB = XLSX.read(e.target.result, {type:'array'});
+    const btn = document.getElementById('vipSyncBtn');
+    if (btn) btn.textContent = '⟳ Sync VIP List (' + file.name + ')';
+    syncVipList();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function syncVipList() {
+  const btn = document.getElementById('vipSyncBtn');
+  if (!_vipWB) {
+    // trigger file pick
+    document.getElementById('fileVipList').click();
+    return;
+  }
+  if (btn) { btn.textContent = 'Syncing...'; btn.disabled = true; }
+  try {
+    // Find VIP List sheet tab
+    const sheetName = _vipWB.SheetNames.find(s => s.toLowerCase().includes('vip')) || _vipWB.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(_vipWB.Sheets[sheetName], {defval:''});
+    // Find header row (skip blank rows at top)
+    const dataRows = rows.filter(r => r['Member ID'] || r['member id'] || Object.values(r).some(v => String(v).startsWith('BOT')));
+    const csv = dataRows.map(r => JSON.stringify(r)).join('\n');
+    const BRAND_MAP = {'MGB':'MGBMY','GFW':'GFW','MBS':'MBS','PGB':'PGB'};
+    let updated = 0;
+
+    dataRows.forEach(function(row) {
+      const region   = String(row['Region']||'').trim();
+      const brand    = String(row['Brand']||'').trim();
+      const memberId = String(row['Member ID']||'').trim();
+      const name     = String(row['Name']||'').trim();
+      const tier     = String(row['Tier']||'').trim();
+      const totDep   = parseFloat(String(row['Total Deposit']||'0').replace(/[^0-9.]/g,''))||0;
+      const totWd    = parseFloat(String(row['Total Withdrawal']||'0').replace(/[^0-9.]/g,''))||0;
+
+      if (!memberId || memberId === '#N/A') return;
+
+      // Determine brand tag
+      let brandTag = 'MGBMY';
+      if (brand === 'GFW') brandTag = 'GFW';
+      else if (brand === 'MBS') brandTag = 'MBS';
+      else if (brand === 'PGB') brandTag = 'PGB';
+      else if (region === 'SG') brandTag = 'MGBSG';
+      else brandTag = 'MGBMY';
+
+      // Find existing member or add new
+      const existing = MEMBERS.find(m => m.id.toLowerCase() === memberId.toLowerCase());
+      if (existing) {
+        // Update with VIP list data (more authoritative)
+        if (name) existing.name = name;
+        existing.brand = brandTag;
+        existing.tier  = tier;
+        if (totDep > 0) existing.tot  = totDep;
+        if (totWd  > 0) existing.totW = totWd;
+        updated++;
+      } else {
+        // Add member from VIP list not yet in dashboard
+        const emptyMonths = MONTHS.map(()=>0);
+        MEMBERS.push({
+          brand: brandTag, id: memberId, name, region, reg:'',
+          ftdM:'No Deposit', ftdD:null, ftdA:0,
+          a:[...emptyMonths], c:[...emptyMonths], w:[...emptyMonths], wl:[...emptyMonths],
+          tot:totDep, totW:totWd, tier
+        });
+        updated++;
+      }
+    });
+
+    render();
+    _vipWB = null; // reset so next click re-picks file
+    if (btn) { btn.textContent = '⟳ Sync VIP List'; btn.disabled = false; }
+    document.getElementById('uploadStatus').textContent = '✅ VIP List synced — ' + updated + ' VIP members updated';
+  } catch(e) {
+    console.error('VIP sync error:', e);
+    _vipWB = null;
+    if (btn) { btn.textContent = '⟳ Sync VIP List'; btn.disabled = false; }
+    document.getElementById('uploadStatus').textContent = '❌ VIP sync failed: ' + e.message;
+  }
+}
+
+// ── RENDER ──────────────────────────────────────────────────────
+function render(){
+  buildTabs();
+  renderKPI();
+  const grid=document.getElementById('mainGrid');
+  const mi=selMi;
+  const isTwo=selView==='vip'||selView==='noftd';
+  const isThree=selView==='overview'||selView==='potential';
+  const isFull=selView==='alldepositors'||selView==='lifetime'||selView==='winloss';
+  grid.className='main '+(isTwo?'grid-2':isThree?'grid-3':isFull?'':'' );
+
+  if(selView==='overview')grid.innerHTML=viewOverview(mi);
+  else if(selView==='vip')grid.innerHTML=viewVIP(mi);
+  else if(selView==='potential')grid.innerHTML=viewPotential(mi);
+  else if(selView==='noftd')grid.innerHTML=viewNoFTD(mi);
+  else if(selView==='alldepositors')grid.innerHTML=viewAllDepositors(mi);
+  else if(selView==='lifetime')grid.innerHTML=viewLifetime();
+  else if(selView==='winloss')grid.innerHTML=viewWinLoss(mi);
+}
+
+// ── MODAL ──────────────────────────────────────────────────────
+function openModal(id){
+  const m=MEMBERS.find(x=>x.id===id);if(!m)return;
+  const maxAmt=Math.max(...m.a,1);
+  const isVIP=m.tot>=VIP;
+  const mi=selMi;
+  const prv=mi>0?m.a[mi-1]:0;
+  const p=pct(m.a[mi],prv);
+  const noteText=
+    isVIP&&m.a[mi]===0?'🔴 VIP member gone quiet this month. High priority for personal re-engagement.':
+    isVIP?'⭐ Active VIP member. Focus on retention and keep them feeling valued.':
+    m.ftdM==='No Deposit'?'⚠️ No first deposit yet. Consider a direct outreach or welcome bonus.':
+    m.tot>=VIP*0.6?`💎 ${Math.round((m.tot/VIP)*100)}% of the way to VIP. A targeted push could convert them.`:
+    p!==null&&p>=50?'📈 Rising fast this month. Good candidate for recognition or upgrade.':
+    m.a[mi]===0&&prv>0?'🟠 Was active last month but silent now. Consider a re-engagement message.':
+    '✅ Active member. Monitor for upsell opportunities.';
+  const noteCls=
+    isVIP&&m.a[mi]===0?'note-warn':
+    m.ftdM==='No Deposit'?'note-warn':
+    m.tot>=VIP*0.6?'note-gold':
+    p!==null&&p>=50?'note-good':
+    m.a[mi]===0&&prv>0?'note-warn':'note-blue';
+
+  const tableRows=MONTHS.map((mo,i)=>{
+    const dep=m.a[i]||0, wd=(m.w?m.w[i]:0)||0, wl=(m.wl?m.wl[i]:dep)||0;
+    if(!dep&&!wd)return'';
+    const wlCol=wl>0?'var(--red)':wl<0?'var(--green)':'var(--muted)';
+    const wlStr=wl===0?'—':(wl>0?'+':'')+' MYR '+Math.abs(wl).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return`<tr class="${dep>0?'row-active':''}">
+      <td>${ML[i]}</td>
+      <td style="color:${i===selMi?'var(--gold)':i===selMi-1?'var(--blue)':'inherit'}">${dep>0?'MYR '+dep.toLocaleString():'—'}</td>
+      <td>${m.c[i]||'—'}</td>
+      <td style="color:var(--purple)">${wd>0?'MYR '+wd.toLocaleString():'—'}</td>
+      <td style="color:${wlCol};font-weight:600">${wlStr}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+
+  const bars=m.a.map((v,i)=>{
+    const h=maxAmt>0?Math.max(2,Math.round((v/maxAmt)*90)):2;
+    const bg=i===9?'var(--gold)':i===8?'var(--blue)':'var(--border2)';
+    const amt=v>=1000?'MYR '+(v/1000).toFixed(1)+'K':v>0?'MYR '+v:'';
+    return`<div class="mb-col">
+      <div class="mb-val">${amt}</div>
+      <div class="mb-bar-wrap"><div class="mb-bar" style="height:${h}%;background:${bg}"></div></div>
+      <div class="mb-label">${ML[i]}</div>
+    </div>`;
+  }).join('');
+
+  // Build modal HTML with tabs
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head">
+      <div>
+        <div class="modal-id">${m.id} ${isVIP?'<span class="badge b-gold">VIP</span>':''}${brandBadge(m.brand||'JIBETS')}</div>
+        <div class="modal-name">${m.name} · ${m.reg} · ${m.region||'—'}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-kpis">
+      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Deposit</div><div class="modal-kpi-val c-gold">${myr(m.tot)}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Withdrawal</div><div class="modal-kpi-val" style="color:var(--purple)">${m.totW?myr(m.totW):'—'}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Net</div>
+        <div class="modal-kpi-val" style="color:${(m.tot-(m.totW||0))>=0?'var(--red)':'var(--green)'}">
+          ${(()=>{const n=m.tot-(m.totW||0);return(n>=0?'+':'')+'MYR '+Math.abs(n).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})})()}
+        </div>
+      </div>
+      <div class="modal-kpi"><div class="modal-kpi-label">${ML[mi]} Deposit</div><div class="modal-kpi-val c-blue">${myr(m.a[mi])}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">${ML[mi]} Withdrawal</div><div class="modal-kpi-val" style="color:var(--purple)">${m.w&&m.w[mi]?myr(m.w[mi]):'—'}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">FTD</div><div class="modal-kpi-val c-green">${m.ftdA>0?'MYR '+m.ftdA.toLocaleString():'—'} <span style="font-size:11px;color:var(--muted)">${m.ftdD||''}</span></div></div>
+    </div>
+    <div class="modal-chart">
+      <div class="modal-chart-title">10-month deposit history</div>
+      <div class="month-bars">${bars}</div>
+    </div>
+    ${tableRows?`<div style="padding:0 24px 16px"><table class="modal-table"><thead><tr><th>Month</th><th>Deposit</th><th>Tx</th><th style="color:var(--purple)">Withdrawal</th><th>Net (Dep−Wd)</th></tr></thead><tbody>${tableRows}</tbody></table></div>`:''}
+    <div class="modal-note ${noteCls}">${noteText}</div>
+
+    <!-- TABS: Overview / Remarks / Contacts / Gifts -->
+    <div class="mc-tabs">
+      <div class="mc-tab on"  onclick="mcTab(this,'mc-remarks')">📝 Remarks</div>
+      <div class="mc-tab"     onclick="mcTab(this,'mc-contacts')">📞 Contact Log</div>
+      <div class="mc-tab"     onclick="mcTab(this,'mc-gifts')">🎁 Gifts</div>
+    </div>
+
+    <!-- REMARKS -->
+    <div id="mc-remarks" class="mc-section">
+      <div class="log-feed" id="feed-remarks-${m.id}">
+        <div class="log-empty">Loading...</div>
+      </div>
+      <div class="log-form">
+        <div class="log-form-row">
+          <input class="log-input" id="inp-remark-${m.id}" placeholder="Add a remark about this member..." />
+          <button class="log-submit" onclick="addLog('remark','${m.id}')">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTACTS -->
+    <div id="mc-contacts" class="mc-section" style="display:none">
+      <div class="log-feed" id="feed-contacts-${m.id}">
+        <div class="log-empty">Loading...</div>
+      </div>
+      <div class="log-form">
+        <div class="log-form-row">
+          <select class="log-select" id="sel-contact-${m.id}">
+            <option value="Call">📞 Call</option>
+            <option value="WhatsApp">💬 WhatsApp</option>
+            <option value="Telegram">✈️ Telegram</option>
+            <option value="SMS">📱 SMS</option>
+            <option value="In-person">🤝 In-person</option>
+          </select>
+          <input class="log-input" id="inp-contact-${m.id}" placeholder="What was discussed?" />
+          <button class="log-submit" onclick="addLog('contact','${m.id}')">Log</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GIFTS -->
+    <div id="mc-gifts" class="mc-section" style="display:none">
+      <div class="log-feed" id="feed-gifts-${m.id}">
+        <div class="log-empty">Loading...</div>
+      </div>
+      <div class="log-form">
+        <div class="log-form-row">
+          <select class="log-select" id="sel-gift-type-${m.id}">
+            <option value="Birthday">🎂 Birthday</option>
+            <option value="Cash Rebate">💵 Cash Rebate</option>
+            <option value="Free Credit">🎰 Free Credit</option>
+            <option value="Physical Gift">📦 Physical Gift</option>
+            <option value="Voucher">🎫 Voucher</option>
+            <option value="Hamper">🧺 Hamper</option>
+            <option value="Other">🎁 Other</option>
+          </select>
+          <input class="log-input" id="inp-gift-val-${m.id}" placeholder="Value (e.g. MYR 500)" style="max-width:140px"/>
+          <input class="log-input" id="inp-gift-${m.id}" placeholder="Description / occasion" />
+          <button class="log-submit" onclick="addLog('gift','${m.id}')">Add</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('open');
+  // Load logs from Firebase
+  loadLogs(m.id);
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+function maybeClose(e){if(e.target===document.getElementById('overlay'))closeModal();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+
+// ── UPLOAD & PARSE ────────────────────────────────────────────
+let _memberWB = null, _depositWB = null, _withdrawalWB = null, _reportWB = null, _depositBotWB = null, _withdrawalBotWB = null, _jibetsReportWB = null;
+
+function handleFile(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+    if (type === 'member') {
+      _memberWB = wb;
+      document.getElementById('slotMember').classList.add('ready');
+      document.getElementById('iconMember').textContent = '✅';
+      document.getElementById('titleMember').textContent = file.name;
+      document.getElementById('subMember').textContent = 'Ready';
+    } else if (type === 'deposit') {
+      _depositWB = wb;
+      document.getElementById('slotDeposit').classList.add('ready');
+      document.getElementById('iconDeposit').textContent = '✅';
+      document.getElementById('titleDeposit').textContent = file.name;
+      document.getElementById('subDeposit').textContent = 'Ready';
+    } else if (type === 'withdrawal') {
+      _withdrawalWB = wb;
+      document.getElementById('slotWithdrawal').classList.add('ready');
+      document.getElementById('iconWithdrawal').textContent = '✅';
+      document.getElementById('titleWithdrawal').textContent = file.name;
+      document.getElementById('subWithdrawal').textContent = 'Ready';
+    } else if (type === 'report') {
+      _reportWB = wb;
+      document.getElementById('slotReport').classList.add('ready');
+      document.getElementById('iconReport').textContent = '✅';
+      document.getElementById('titleReport').textContent = file.name;
+      document.getElementById('subReport').textContent = Object.keys(wb.Sheets).filter(s=>['PGB','MGBMY','MGBSG','MBS','GFW'].includes(s)).join(', ') + ' loaded';
+    } else if (type === 'jibetsreport') {
+      _jibetsReportWB = wb;
+      document.getElementById('slotJibetsReport').classList.add('ready');
+      document.getElementById('iconJibetsReport').textContent = '✅';
+      document.getElementById('titleJibetsReport').textContent = file.name;
+      document.getElementById('subJibetsReport').textContent = 'Ready';
+    } else if (type === 'depositbot') {
+      _depositBotWB = wb;
+      document.getElementById('slotDepositBot').classList.add('ready');
+      document.getElementById('iconDepositBot').textContent = '✅';
+      document.getElementById('titleDepositBot').textContent = file.name;
+      document.getElementById('subDepositBot').textContent = 'Ready';
+    } else if (type === 'withdrawalbot') {
+      _withdrawalBotWB = wb;
+      document.getElementById('slotWithdrawalBot').classList.add('ready');
+      document.getElementById('iconWithdrawalBot').textContent = '✅';
+      document.getElementById('titleWithdrawalBot').textContent = file.name;
+      document.getElementById('subWithdrawalBot').textContent = 'Ready';
+    } else if (type === 'jibetsreport') {
+      _jibetsReportWB = wb;
+      document.getElementById('slotJibetsReport').classList.add('ready');
+      document.getElementById('iconJibetsReport').textContent = '✅';
+      document.getElementById('titleJibetsReport').textContent = file.name;
+      document.getElementById('subJibetsReport').textContent = 'Ready';
+    } else if (type === 'depositbot') {
+      _depositBotWB = wb;
+      document.getElementById('slotDepositBot').classList.add('ready');
+      document.getElementById('iconDepositBot').textContent = '✅';
+      document.getElementById('titleDepositBot').textContent = file.name;
+      document.getElementById('subDepositBot').textContent = 'Ready';
+    } else if (type === 'withdrawalbot') {
+      _withdrawalBotWB = wb;
+      document.getElementById('slotWithdrawalBot').classList.add('ready');
+      document.getElementById('iconWithdrawalBot').textContent = '✅';
+      document.getElementById('titleWithdrawalBot').textContent = file.name;
+      document.getElementById('subWithdrawalBot').textContent = 'Ready';
+    }
+    const missing = [];
+    if (!_depositWB)    missing.push('Deposit');
+    if (!_withdrawalWB) missing.push('Withdrawal');
+    const extras = [];
+    if (_memberWB)  extras.push('Brand 1 members ✅');
+    if (_reportWB)  extras.push('Brand 2 report ✅');
+    const readyMsg = missing.length === 0
+      ? (extras.length ? extras.join(' · ') + ' · Click ⚡ Refresh!' : 'Deposit + Withdrawal ready — Click ⚡ Refresh!')
+      : 'Still waiting for: ' + missing.join(', ');
+    document.getElementById('uploadStatus').textContent = readyMsg;
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Persistent stores — survive multiple Refresh clicks ──────
+let BOT_BASE = [];
+
+function processFiles() {
+  const btn    = document.getElementById('uploadBtn');
+  const status = document.getElementById('uploadStatus');
+
+  if (!_depositWB && !_depositBotWB) {
+    status.textContent = '⚠️ Upload at least one Deposit file.';
+    return;
+  }
+
+  btn.textContent = 'Processing...';
+  status.textContent = 'Parsing files...';
+
+  try {
+
+    // ── If Player Report uploaded, rebuild BOT_BASE from it ──
+    if (_reportWB) {
+      BOT_BASE = [];
+      const SHEETS = ['MGBMY','MGBSG','MBS','GFW','PGB'];
+      SHEETS.forEach(function(sheet) {
+        const sh = _reportWB.Sheets[sheet];
+        if (!sh) return;
+        XLSX.utils.sheet_to_json(sh, {defval:0}).forEach(function(row) {
+          const id = String(row['Member ID']||'').trim();
+          if (!id) return;
+          let reg = '';
+          const rr = row['Registration Date'];
+          if (rr) {
+            const d = rr instanceof Date ? rr : new Date(String(rr));
+            if (!isNaN(d.getTime()))
+              reg = d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+          }
+          const tot  = parseFloat(String(row['Total Deposit Amount']  ||0).replace(/,/g,''))||0;
+          const totW = parseFloat(String(row['Total Withdrawal Amount']||0).replace(/,/g,''))||0;
+          const name = String(row['Telegram Name']||row['Account Name']||'').trim();
+          BOT_BASE.push({
+            brand: sheet, id, name,
+            region: sheet==='MGBSG'?'SG':'MY',
+            reg, ftdM:'No Deposit', ftdD:null, ftdA:0,
+            a:[], c:[], w:[], wl:[], tot, totW
+          });
+        });
+      });
+    }
+
+    // ── If JIBETS Player Report uploaded, rebuild JIBETS member list ──
+    if (_jibetsReportWB) {
+      // Parse Detail sheet: member, totalDeposit, totalWithdrawal, memberShip, region
+      const sh = _jibetsReportWB.Sheets['Detail'] || _jibetsReportWB.Sheets[_jibetsReportWB.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sh, {defval:0});
+      // Update JIBETS_BASE with fresh lifetime totals
+      rows.forEach(function(row) {
+        const id   = String(row['member']||'').trim();
+        if (!id) return;
+        const tot  = parseFloat(row['totalDeposit']   ||0)||0;
+        const totW = parseFloat(row['totalWithdrawal']||0)||0;
+        const name = String(row['member']||'').trim(); // no name col, use ID
+        const region = String(row['region']||'').trim();
+        const level  = String(row['memberShip']||'').trim();
+        // Split JIBETS into MY and SG brands
+        const jbrand = (region==='Singapore') ? 'JIBETS_SG' : 'JIBETS_MY';
+        const ex = JIBETS_BASE.find(m=>m.id.toLowerCase()===id.toLowerCase());
+        if (ex) {
+          ex.tot=tot; ex.totW=totW; ex.region=region; ex.brand=jbrand; if(level) ex.level=level;
+        } else {
+          JIBETS_BASE.push({brand:jbrand,id,name,region,reg:'',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[],c:[],w:[],wl:[],tot,totW,level});
+        }
+      });
+    }
+
+    // ── Build master member list: JIBETS_BASE + BOT_BASE ──
+    // Deep copy so originals are never mutated
+    const allMembers = [
+      ...JIBETS_BASE.map(m=>({...m, a:[...m.a], c:[...m.c], w:[...m.w], wl:[...m.wl]})),
+      ...BOT_BASE.map(m=>({...m, a:[], c:[], w:[], wl:[]}))
+    ];
+
+    // ── Parse helper functions ──
+    function parseTS(ts) {
+      if (ts instanceof Date) return ts;
+      if (typeof ts==='number') return new Date(Math.round((ts-25569)*86400*1000));
+      var s = String(ts).trim();
+      // Handle "2026/04/30 11:59:06 PM" → convert slashes and 12h time
+      s = s.replace(/(\d{4})\/(\d{2})\/(\d{2})/, '$1-$2-$3');
+      // Convert 12-hour AM/PM to 24-hour so new Date() parses correctly
+      var pmMatch = s.match(/(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)/i);
+      if (pmMatch) {
+        var h = parseInt(pmMatch[1]), m2 = pmMatch[2], sc = pmMatch[3], ampm = pmMatch[4].toUpperCase();
+        if (ampm==='PM' && h!==12) h+=12;
+        if (ampm==='AM' && h===12) h=0;
+        s = s.replace(pmMatch[0], ('0'+h).slice(-2)+':'+m2+':'+sc);
+      }
+      return new Date(s);
+    }
+    function parseDeposits(wb, idCol, tsCol, amtCol) {
+      if (!wb) return [];
+      return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',cellDates:true})
+        .filter(r=>String(r['Status']||'').trim()==='Approved')
+        .map(function(r) {
+          const id = String(r[idCol]||'').trim().toLowerCase();
+          if (!id) return null;
+          const amt = parseFloat(String(r[amtCol]||'0').replace(/[^0-9.]/g,''))||0;
+          const d   = parseTS(r[tsCol]);
+          if (!d||isNaN(d.getTime())) return null;
+          const yyyy=d.getFullYear(), mm=('0'+(d.getMonth()+1)).slice(-2), dd=('0'+d.getDate()).slice(-2);
+          return {loginId:id, amount:amt, month:yyyy+'-'+mm, date:yyyy+'-'+mm+'-'+dd, ts:d.getTime()};
+        }).filter(Boolean);
+    }
+    function parseWithdrawals(wb, idCol, tsCol) {
+      if (!wb) return [];
+      return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',cellDates:true})
+        .filter(r=>String(r['Status']||'').trim()==='Approved')
+        .map(function(r) {
+          const id = String(r[idCol]||'').trim().toLowerCase();
+          if (!id) return null;
+          const amt = parseFloat(String(r['Amount']||'0').replace(/[^0-9.]/g,''))||0;
+          const d   = parseTS(r[tsCol]);
+          if (!d||isNaN(d.getTime())) return null;
+          const yyyy=d.getFullYear(), mm=('0'+(d.getMonth()+1)).slice(-2);
+          return {loginId:id, amount:amt, month:yyyy+'-'+mm};
+        }).filter(Boolean);
+    }
+
+    // Auto-detect format: if file has 'Login ID' = JIBETS format, else BOT format
+    function smartParseDeposits(wb) {
+      if (!wb) return [];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',cellDates:true});
+      if (!rows.length) return [];
+      const idCol  = rows[0]['Login ID']  !== undefined ? 'Login ID'   : 'Member ID';
+      const tsCol  = rows[0]['Created Timestamp'] !== undefined ? 'Created Timestamp' : 'Created Date Time';
+      const amtCol = rows[0]['Confirmed Amount']  !== undefined ? 'Confirmed Amount'  : 'Amount';
+      return parseDeposits(wb, idCol, tsCol, amtCol);
+    }
+    function smartParseWithdrawals(wb) {
+      if (!wb) return [];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',cellDates:true});
+      if (!rows.length) return [];
+      const idCol = rows[0]['Login ID'] !== undefined ? 'Login ID' : 'Member ID';
+      const tsCol = rows[0]['Created Timestamp'] !== undefined ? 'Created Timestamp' : 'Created Date Time';
+      return parseWithdrawals(wb, idCol, tsCol);
+    }
+
+    // JIBETS: Login ID + Confirmed Amount + Created Timestamp
+    const jiDeps = parseDeposits(_depositWB,    'Login ID',  'Created Timestamp',  'Confirmed Amount');
+    const jiWds  = parseWithdrawals(_withdrawalWB, 'Login ID', 'Created Timestamp');
+    // BOT: Member ID + Amount (plain) + Created Date Time
+    const botDeps = parseDeposits(_depositBotWB,    'Member ID', 'Created Date Time', 'Amount');
+    const botWds  = parseWithdrawals(_withdrawalBotWB, 'Member ID', 'Created Date Time');
+    const deposits    = [...jiDeps, ...botDeps];
+    const withdrawals = [...jiWds,  ...botWds];
+
+    // Collect months
+    const monthSet = {};
+    deposits.forEach(d=>{ monthSet[d.month]=true; });
+    const newMonths = Object.keys(monthSet).sort();
+
+    if (newMonths.length===0) {
+      status.textContent='❌ No approved deposits found.';
+      btn.textContent='⚡ Refresh Dashboard'; return;
+    }
+
+    // ── Aggregate per member ──
+    const agg = {};
+    deposits.forEach(function(dep) {
+      if (!agg[dep.loginId]) agg[dep.loginId]={ftdTs:dep.ts,ftdDate:dep.date,ftdMonth:dep.month,monthlyAmt:{},monthlyCnt:{},monthlyWd:{},monthlyWL:{},totalAmt:0,totalCnt:0,totalWd:0};
+      const a=agg[dep.loginId];
+      if (dep.ts<a.ftdTs){a.ftdTs=dep.ts;a.ftdDate=dep.date;a.ftdMonth=dep.month;}
+      a.monthlyAmt[dep.month]=(a.monthlyAmt[dep.month]||0)+dep.amount;
+      a.monthlyCnt[dep.month]=(a.monthlyCnt[dep.month]||0)+1;
+      a.totalAmt+=dep.amount; a.totalCnt+=1;
+    });
+    withdrawals.forEach(function(wd) {
+      if (!agg[wd.loginId]) return;
+      const a=agg[wd.loginId];
+      a.monthlyWd[wd.month]=(a.monthlyWd[wd.month]||0)+wd.amount;
+      a.totalWd+=wd.amount;
+    });
+    Object.keys(agg).forEach(function(id) {
+      const a=agg[id];
+      Object.keys({...a.monthlyAmt,...a.monthlyWd}).forEach(function(mo){
+        a.monthlyWL[mo]=(a.monthlyAmt[mo]||0)-(a.monthlyWd[mo]||0);
+      });
+    });
+    Object.keys(agg).forEach(function(id) {
+      const a=agg[id]; let ftdAmt=0;
+      deposits.forEach(function(dep){if(dep.loginId===id&&dep.date===a.ftdDate)ftdAmt+=dep.amount;});
+      a.ftdAmount=ftdAmt;
+    });
+
+    // ── Apply agg to allMembers ──
+    const memberById = {};
+    allMembers.forEach(function(m){ memberById[m.id.toLowerCase()]=m; });
+
+    // Add stub for any deposit member not yet in list
+    Object.keys(agg).forEach(function(idLower) {
+      if (!memberById[idLower]) {
+        const stub = {brand:'JIBETS',id:idLower,name:'',region:'',reg:'',ftdM:'No Deposit',ftdD:null,ftdA:0,a:[],c:[],w:[],wl:[],tot:0,totW:0};
+        allMembers.push(stub);
+        memberById[idLower]=stub;
+      }
+    });
+
+    // Apply monthly data
+    allMembers.forEach(function(m) {
+      const a = agg[m.id.toLowerCase()];
+      m.a  = newMonths.map(mo=>a?(a.monthlyAmt[mo]||0):0);
+      m.c  = newMonths.map(mo=>a?(a.monthlyCnt[mo]||0):0);
+      m.w  = newMonths.map(mo=>a?(a.monthlyWd[mo] ||0):0);
+      m.wl = newMonths.map(mo=>a?(a.monthlyWL[mo] ||0):0);
+      if (a) {
+        m.ftdM = a.ftdMonth; m.ftdD = a.ftdDate; m.ftdA = a.ftdAmount;
+        // Only override lifetime from deposits if no player report uploaded
+        if (m.brand==='JIBETS' && !_jibetsReportWB) { m.tot=a.totalAmt; m.totW=a.totalWd; }
+        if (m.brand!=='JIBETS' && !_reportWB)        { m.tot=a.totalAmt; m.totW=a.totalWd; }
+      }
+    });
+
+    // ── Update globals ──
+    MONTHS.length=0; newMonths.forEach(m=>MONTHS.push(m));
+    ML.length=0;
+    newMonths.forEach(function(m){
+      const d=new Date(m+'-01');
+      ML.push(d.toLocaleString('en',{month:'short'})+" '"+String(d.getFullYear()).slice(2));
+    });
+    MEMBERS.length=0;
+    const seen=new Set();
+    allMembers.forEach(function(m){
+      if(!seen.has(m.id.toLowerCase())){seen.add(m.id.toLowerCase());MEMBERS.push(m);}
+    });
+
+    selMi=MONTHS.length-1; selYear=null; selBrand='ALL';
+    document.querySelectorAll('.bftab').forEach(b=>b.classList.remove('on'));
+    const allBtn=document.querySelector('.bftab-all');
+    if(allBtn) allBtn.classList.add('on');
+    render();
+
+    const jiCount  = MEMBERS.filter(m=>m.brand==='JIBETS').length;
+    const botCount = MEMBERS.filter(m=>m.brand!=='JIBETS').length;
+    btn.textContent='⚡ Refresh Dashboard';
+    status.textContent='✅ '+MEMBERS.length+' members — JIBETS: '+jiCount+' · BOT: '+botCount+' · '+newMonths.length+' months';
+
+  } catch(err) {
+    console.error(err);
+    status.textContent='❌ Error: '+err.message;
+    btn.textContent='⚡ Refresh Dashboard';
+  }
+}
+
+render();
+</script>
+</body>
+</html>
