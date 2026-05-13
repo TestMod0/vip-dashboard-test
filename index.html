@@ -1324,11 +1324,26 @@ async function loadLogs(memberId) {
     // Also load notes (old app stores as .notes string)
     const notes = (doc.exists && doc.data().notes) ? doc.data().notes : '';
 
-    // Separate entries by type
+    // Separate entries by type — map old app type names to new tab names
+    // Old app used: 'call', 'tg', 'note' → contact/remark
+    // Old app used: 'gifts', 'gift' → gift
+    // Old app used: 'remark', 'note', undefined → remark
+    const TYPE_MAP = {
+      'call':    'contact',
+      'tg':      'contact',
+      'telegram':'contact',
+      'whatsapp':'contact',
+      'contact': 'contact',
+      'gift':    'gift',
+      'gifts':   'gift',
+      'remark':  'remark',
+      'note':    'remark',
+    };
     const byType = { remark: [], contact: [], gift: [] };
     entries.forEach(function(e, idx) {
-      const t = e.type || 'remark';
-      if (byType[t]) byType[t].push({...e, _idx: idx});
+      const raw = (e.type || 'remark').toLowerCase();
+      const t   = TYPE_MAP[raw] || 'remark';
+      byType[t].push({...e, _idx: idx});
     });
     // Also push old notes as a remark if present
     if (notes) byType.remark.unshift({text: notes, ts: null, by: '', _idx: -1, _isNote: true});
@@ -1343,14 +1358,24 @@ async function loadLogs(memberId) {
       }
       feedEl.innerHTML = list.map(function(e) {
         const dotCls = 'log-dot-' + type;
-        const tsStr = e.ts
-          ? (e.ts.seconds
-              ? new Date(e.ts.seconds*1000).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
-              : new Date(e.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}))
-          : '—';
+        let tsStr = '—';
+        if (e.ts) {
+          let d;
+          if (e.ts.seconds) d = new Date(e.ts.seconds*1000);         // Firestore Timestamp
+          else if (e.ts.toDate) d = e.ts.toDate();                    // Firestore Timestamp object
+          else if (typeof e.ts === 'number') d = new Date(e.ts);      // Unix ms
+          else d = new Date(e.ts);                                     // ISO string
+          if (d && !isNaN(d.getTime()))
+            tsStr = d.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        }
         let label = '';
-        if (type === 'contact') label = '<span style="color:var(--blue);margin-right:6px">' + (e.method||'') + '</span>';
-        if (type === 'gift')    label = '<span style="color:var(--gold);margin-right:6px">' + (e.giftType||'') + (e.value?' · '+e.value:'') + '</span>';
+        if (type === 'contact') {
+          // Use method field, or fall back to original type (call, tg, etc.)
+          const method = e.method || e.type || 'Call';
+          const methodDisplay = method==='tg'?'Telegram':method==='call'?'Call':method;
+          label = '<span style="color:var(--blue);margin-right:6px">' + methodDisplay + '</span>';
+        }
+        if (type === 'gift') label = '<span style="color:var(--gold);margin-right:6px">' + (e.giftType||e.type||'Gift') + (e.value?' · '+e.value:'') + '</span>';
         const delBtn = e._isNote ? '' : '<button class="log-delete" title="Delete" onclick="deleteLog(\''+memberId+'\','+e._idx+')">✕</button>';
         return '<div class="log-entry">'
           + '<div class="log-dot '+dotCls+'"></div>'
