@@ -287,15 +287,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .mc-tab.on{color:var(--gold);border-bottom-color:var(--gold)}
 
 /* ── LOG FEED ─────────────────────────────── */
-.log-feed{padding:16px 24px;display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto}
-.log-entry{display:flex;gap:10px;align-items:flex-start}
+.log-feed{padding:16px 24px;display:flex;flex-direction:column;gap:12px;max-height:340px;overflow-y:auto}
+.log-entry{display:flex;gap:10px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.log-entry:last-child{border-bottom:none}
 .log-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
 .log-dot-contact{background:var(--blue)}
 .log-dot-gift{background:var(--gold)}
 .log-dot-remark{background:var(--purple)}
 .log-body{flex:1;min-width:0}
-.log-text{font-size:12px;color:var(--text);line-height:1.5}
-.log-meta{font-size:10px;color:var(--muted);margin-top:2px}
+.log-text{font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.log-meta{font-size:10px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:6px}
+.log-dot-line{width:1px;height:12px;background:var(--border2)}
 .log-empty{font-size:12px;color:var(--muted);padding:20px 24px;text-align:center}
 
 /* ── ADD LOG FORM ─────────────────────────── */
@@ -537,6 +539,24 @@ const MEMBERS=DATA.filter(m=>{if(seen.has(m.id))return false;seen.add(m.id);retu
 const JIBETS_BASE = MEMBERS.map(m=>Object.assign({},m,{a:[...m.a],c:[...m.c],w:[...m.w],wl:[...m.wl]}));
 
 // ── HELPERS ──────────────────────────────────────────────────
+// ── CURRENCY CONFIG ──────────────────────────────────────────
+// SGD brands: amounts stored in SGD, display with S$ prefix
+const SGD_BRANDS = new Set(['JIBETS_SG','MGBSG','GFW','MBS']);
+
+function isSGD(brand) { return SGD_BRANDS.has(brand); }
+
+// Format amount with correct currency symbol
+function fmtAmt(val, brand) {
+  const v = Math.abs(val||0);
+  return (isSGD(brand) ? 'S$ ' : 'MYR ') + v.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// Full format (no abbreviation) with currency
+function fmtFull(val, brand) {
+  const v = Math.abs(val||0);
+  return (isSGD(brand) ? 'S$ ' : 'MYR ') + v.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
 // Brand badge helper
 function brandBadge(brand) {
   const map = {
@@ -692,20 +712,60 @@ function setView(v,el){
 // ── KPI ──────────────────────────────────────────────────────
 function renderKPI(){
   const mi=selMi;
-  const active=MEMBERS.filter(m=>m.a[mi]>0);
-  const total=active.reduce((s,m)=>s+m.a[mi],0);
-  const vips=MEMBERS.filter(m=>m.tot>=VIP);
-  const vipActive=vips.filter(m=>m.a[mi]>0);
-  const noFtd=MEMBERS.filter(m=>m.ftdM==='No Deposit');
-  const prev=mi>0?MEMBERS.filter(m=>m.a[mi-1]>0):[];
-  const goneQuiet=mi>0?MEMBERS.filter(m=>m.a[mi-1]>0&&m.a[mi]===0):[];
+  const fm = filteredMembers();
 
-  document.getElementById('kpiBar').innerHTML=`
+  // Split by currency
+  const myrMembers = fm.filter(m=>!isSGD(m.brand));
+  const sgdMembers = fm.filter(m=>isSGD(m.brand));
+
+  const myrActive  = myrMembers.filter(m=>m.a[mi]>0);
+  const sgdActive  = sgdMembers.filter(m=>m.a[mi]>0);
+  const myrTotal   = myrActive.reduce((s,m)=>s+m.a[mi],0);
+  const sgdTotal   = sgdActive.reduce((s,m)=>s+m.a[mi],0);
+
+  const allActive  = fm.filter(m=>m.a[mi]>0);
+  const vips       = fm.filter(m=>m.tot>=VIP);
+  const vipActive  = vips.filter(m=>m.a[mi]>0);
+  const noFtd      = fm.filter(m=>m.ftdM==='No Deposit');
+  const prev       = mi>0?fm.filter(m=>m.a[mi-1]>0):[];
+  const goneQuiet  = mi>0?fm.filter(m=>m.a[mi-1]>0&&m.a[mi]===0):[];
+
+  // Show deposit KPI — split if both currencies present, single if only one
+  const hasMYR = myrActive.length > 0;
+  const hasSGD = sgdActive.length > 0;
+
+  let depKpi = '';
+  if (hasMYR && hasSGD) {
+    // Both — show two separate KPIs
+    depKpi = `
+    <div class="kpi">
+      <div class="kpi-label">Deposits ${ML[mi]} (MYR)</div>
+      <div class="kpi-val c-gold">${myr(myrTotal)}</div>
+      <div class="kpi-sub">${myrActive.length} active members</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Deposits ${ML[mi]} (SGD)</div>
+      <div class="kpi-val" style="color:#a78bfa">S$ ${sgdTotal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <div class="kpi-sub">${sgdActive.length} active members</div>
+    </div>`;
+  } else if (hasSGD) {
+    depKpi = `
+    <div class="kpi">
+      <div class="kpi-label">Deposits ${ML[mi]} (SGD)</div>
+      <div class="kpi-val" style="color:#a78bfa">S$ ${sgdTotal.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <div class="kpi-sub">${sgdActive.length} active members</div>
+    </div>`;
+  } else {
+    depKpi = `
     <div class="kpi">
       <div class="kpi-label">Deposits ${ML[mi]}</div>
-      <div class="kpi-val c-gold">${myr(total)}</div>
-      <div class="kpi-sub">${active.length} active members</div>
-    </div>
+      <div class="kpi-val c-gold">${myr(myrTotal)}</div>
+      <div class="kpi-sub">${myrActive.length} active members</div>
+    </div>`;
+  }
+
+  document.getElementById('kpiBar').innerHTML=`
+    ${depKpi}
     <div class="kpi">
       <div class="kpi-label">VIP Members</div>
       <div class="kpi-val c-gold">${vips.length} total</div>
@@ -713,7 +773,7 @@ function renderKPI(){
     </div>
     <div class="kpi">
       <div class="kpi-label">Active this month</div>
-      <div class="kpi-val c-blue">${active.length}</div>
+      <div class="kpi-val c-blue">${allActive.length}</div>
       <div class="kpi-sub">${mi>0?prev.length+' active last month':'—'}</div>
     </div>
     <div class="kpi">
@@ -762,9 +822,9 @@ function viewOverview(mi){
     const netCol   = net>=0?'var(--red)':'var(--green)';
     return '<tr onclick="setBrandAndRender(\"'+b.key+'\")" style="cursor:pointer">'
       +'<td><span class="badge '+b.cls+'">'+b.label+'</span></td>'
-      +'<td style="text-align:right;font-family:Syne,sans-serif;font-weight:700;color:var(--blue)">'+myr(dep)+'</td>'
-      +'<td style="text-align:right;color:var(--purple)">'+myr(wd)+'</td>'
-      +'<td style="text-align:right;font-weight:700;color:'+netCol+'">'+( net>=0?'+':'' )+myr(net)+'</td>'
+      +'<td style="text-align:right;font-family:Syne,sans-serif;font-weight:700;color:var(--blue)">'+fmtAmt(dep,b.key)+'</td>'
+      +'<td style="text-align:right;color:var(--purple)">'+fmtAmt(wd,b.key)+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:'+netCol+'">'+( net>=0?'+':'' )+fmtAmt(net,b.key)+'</td>'
       +'<td style="text-align:center">'+chgHtml+'</td>'
       +'<td style="text-align:center;color:var(--muted2)">'+active+' / '+total+'</td>'
       +'</tr>';
@@ -1183,8 +1243,8 @@ function viewWinLoss(mi){
         <div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px">${m.id}${isVIP?' <span class="badge b-gold">VIP</span>':''}</div>
         <div style="font-size:11px;color:var(--muted2)">${m.name}</div>
       </td>
-      <td style="text-align:right;color:var(--blue)">MYR ${dep.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;color:var(--purple)">MYR ${wd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;color:var(--blue)">${fmtFull(dep,m.brand)}</td>
+      <td style="text-align:right;color:var(--purple)">${fmtFull(wd,m.brand)}</td>
       <td style="text-align:right;font-family:Syne,sans-serif;font-weight:700;color:${wlColor(wl)}">
         ${wl===0?'—':(wl>0?'+':'-')+fmtAmt(wl)}
       </td>
@@ -1314,15 +1374,12 @@ async function loadLogs(memberId) {
   }
   try {
     // Try original case first, then uppercase, then lowercase
-    // Old app may store as BOTKK133, botkk133, or mixed
     let doc = await db.collection('feedback').doc(memberId).get();
     if (!doc.exists) doc = await db.collection('feedback').doc(memberId.toUpperCase()).get();
     if (!doc.exists) doc = await db.collection('feedback').doc(memberId.toLowerCase()).get();
 
     const entries = (doc.exists && doc.data().entries) ? doc.data().entries : [];
-
-    // Also load notes (old app stores as .notes string)
-    const notes = (doc.exists && doc.data().notes) ? doc.data().notes : '';
+    const notes   = (doc.exists && doc.data().notes)   ? doc.data().notes   : '';
 
     // Separate entries by type — map old app type names to new tab names
     // Old app used: 'call', 'tg', 'note' → contact/remark
@@ -1377,11 +1434,18 @@ async function loadLogs(memberId) {
         }
         if (type === 'gift') label = '<span style="color:var(--gold);margin-right:6px">' + (e.giftType||e.type||'Gift') + (e.value?' · '+e.value:'') + '</span>';
         const delBtn = e._isNote ? '' : '<button class="log-delete" title="Delete" onclick="deleteLog(\''+memberId+'\','+e._idx+')">✕</button>';
+        // Format text: replace bullet • with line break for readability
+        const rawText = (e.text||'').trim();
+        const formattedText = rawText
+          .replace(/\s*•\s*/g, '\n• ')  // normalize bullet points to new lines
+          .replace(/^\s*•\s*/, '• ')      // clean leading bullet
+          .trim();
+
         return '<div class="log-entry">'
-          + '<div class="log-dot '+dotCls+'"></div>'
+          + '<div class="log-dot '+dotCls+'" style="margin-top:4px;flex-shrink:0"></div>'
           + '<div class="log-body">'
-          + '<div class="log-text">'+label+(e.text||'')+'</div>'
-          + '<div class="log-meta">'+tsStr+(e.by?' · '+e.by:'')+'</div>'
+          + '<div class="log-text">'+label+formattedText+'</div>'
+          + '<div class="log-meta">'+tsStr+(e.by?' <span style="color:var(--border2)">·</span> '+e.by:'')+'</div>'
           + '</div>'
           + delBtn
           + '</div>';
@@ -1629,7 +1693,7 @@ function openModal(id){
   const bars=m.a.map((v,i)=>{
     const h=maxAmt>0?Math.max(2,Math.round((v/maxAmt)*90)):2;
     const bg=i===9?'var(--gold)':i===8?'var(--blue)':'var(--border2)';
-    const amt=v>=1000?'MYR '+(v/1000).toFixed(1)+'K':v>0?'MYR '+v:'';
+    const amt=v>0?'MYR '+v.toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0}):'';
     return`<div class="mb-col">
       <div class="mb-val">${amt}</div>
       <div class="mb-bar-wrap"><div class="mb-bar" style="height:${h}%;background:${bg}"></div></div>
@@ -1647,16 +1711,16 @@ function openModal(id){
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-kpis">
-      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Deposit</div><div class="modal-kpi-val c-gold">${myr(m.tot)}</div></div>
-      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Withdrawal</div><div class="modal-kpi-val" style="color:var(--purple)">${m.totW?myr(m.totW):'—'}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Deposit</div><div class="modal-kpi-val c-gold">${fmtFull(m.tot,m.brand)}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Withdrawal</div><div class="modal-kpi-val" style="color:var(--purple)">${m.totW?fmtFull(m.totW,m.brand):'—'}</div></div>
       <div class="modal-kpi"><div class="modal-kpi-label">Lifetime Net</div>
         <div class="modal-kpi-val" style="color:${(m.tot-(m.totW||0))>=0?'var(--red)':'var(--green)'}">
-          ${(()=>{const n=m.tot-(m.totW||0);return(n>=0?'+':'')+'MYR '+Math.abs(n).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})})()}
+          ${(()=>{const n=m.tot-(m.totW||0);return(n>=0?'+':'')+fmtFull(Math.abs(n),m.brand)})()}
         </div>
       </div>
-      <div class="modal-kpi"><div class="modal-kpi-label">${ML[mi]} Deposit</div><div class="modal-kpi-val c-blue">${myr(m.a[mi])}</div></div>
-      <div class="modal-kpi"><div class="modal-kpi-label">${ML[mi]} Withdrawal</div><div class="modal-kpi-val" style="color:var(--purple)">${m.w&&m.w[mi]?myr(m.w[mi]):'—'}</div></div>
-      <div class="modal-kpi"><div class="modal-kpi-label">FTD</div><div class="modal-kpi-val c-green">${m.ftdA>0?'MYR '+m.ftdA.toLocaleString():'—'} <span style="font-size:11px;color:var(--muted)">${m.ftdD||''}</span></div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">${ML[mi]} Deposit</div><div class="modal-kpi-val c-blue">${fmtFull(m.a[mi],m.brand)}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">${ML[mi]} Withdrawal</div><div class="modal-kpi-val" style="color:var(--purple)">${m.w&&m.w[mi]?fmtFull(m.w[mi],m.brand):'—'}</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">FTD</div><div class="modal-kpi-val c-green">${m.ftdA>0?fmtFull(m.ftdA,m.brand):'—'} <span style="font-size:11px;color:var(--muted)">${m.ftdD||''}</span></div></div>
     </div>
     <div class="modal-chart">
       <div class="modal-chart-title">10-month deposit history</div>
